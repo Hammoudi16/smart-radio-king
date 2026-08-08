@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>صفحة الفنان - البث والدردشة</title>
-<style>
+    <title>صفحة الفنان - البث والدردشة العالمي</title>
+    <style>
         body { font-family: Arial, sans-serif; background: #0f0c1b; color: #fff; text-align: center; padding: 20px; }
         .profile-card { background: #1a1528; padding: 25px; border-radius: 15px; max-width: 450px; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .avatar { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #ff007f; margin-bottom: 15px; }
         .btn-play { background: #ff007f; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; transition: 0.3s; }
         .btn-play:hover { transform: scale(1.05); }
-        .badge { background: #00f2fe; color: #000; padding: 5px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+        .badge { background: #ff007f; color: #fff; padding: 5px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; }
         .now-playing { font-style: italic; color: #00f2fe; margin-top: 10px; }
         
         .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; margin-top: 15px; }
@@ -22,7 +22,7 @@
         .chat-input-row { display: flex; gap: 5px; }
         .chat-input { flex: 1; background: #251f38; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; }
         .chat-btn { background: #00f2fe; color: black; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-</style>
+    </style>
   </head>
   <body>
 
@@ -30,8 +30,8 @@
     <div class="profile-card">
       <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
       <h2>إذاعة الفنان المباشرة</h2>
-      <p><span class="badge" id="liveBadge">في الانتظار</span></p>
-      <p class="now-playing" id="trackName">لا يوجد بث حالياً</p>
+      <p><span class="badge" id="liveBadge">🔴 بث مباشر شغال</span></p>
+      <p class="now-playing" id="trackName">راديو كينج بث عالمي مستمر</p>
       <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو</button>
       <audio id="streamPlayer"></audio>
     </div>
@@ -61,7 +61,7 @@
       </div>
     </div>
 
-<script>
+    <script>
         var player = document.getElementById('streamPlayer');
         var listenBtn = document.getElementById('listenBtn');
         var liveBadge = document.getElementById('liveBadge');
@@ -70,52 +70,35 @@
         var chatInput = document.getElementById('chatInput');
         var sendChatBtn = document.getElementById('sendChatBtn');
 
+        // رابط سيرفر الصوت الخاص بك على منصة Render
+        var RENDER_STREAM_URL = "https://onrender.com";
+
+        // استقبال الرسائل القادمة من المذيع وتحديث الشات
         window.addEventListener('storage', function(e) {
-            if (e.key === 'radio_current_src' && e.newValue) {
-                player.src = e.newValue;
-                if (!player.paused || listenBtn.innerText.indexOf('إيقاف') !== -1) {
-                    player.play();
-                }
-                if (liveBadge) {
-                    liveBadge.innerText = "🔴 بث مباشر شغال";
-                    liveBadge.style.background = "#ff007f";
-                }
-            }
-            if (e.key === 'radio_track_title' && e.newValue && trackName) {
-                trackName.innerText = "المقطع الحالي: " + e.newValue;
-            }
-            if (e.key === 'radio_status' && e.newValue === 'Ready') {
-                if (liveBadge) {
-                    liveBadge.innerText = "في الانتظار";
-                    liveBadge.style.background = "#00f2fe";
-                }
-                if (trackName) {
-                    trackName.innerText = "انتهى البث التلقائي";
-                }
-                player.pause();
-            }
-            // استقبال الرسائل المرتدة من لوحة تحكم المذيع
             if (e.key === 'chat_sync_msg' && e.newValue) {
-                appendMessage("المذيع", e.newValue);
+                var msgData = e.newValue.split('||')[0];
+                appendMessage("المذيع", msgData);
             }
         });
 
+        // تشغيل وإيقاف البث الحي القادم من سيرفر Render
         listenBtn.addEventListener('click', function() {
-            var savedSrc = localStorage.getItem('radio_current_src');
             if (player.paused) {
-                if (savedSrc) {
-                    player.src = savedSrc;
-                    player.play();
+                player.src = RENDER_STREAM_URL;
+                player.play().then(function() {
                     listenBtn.innerText = "⏸ إيقاف مؤقت";
-                } else {
-                    alert("الإذاعة لا تبث أي شيء الآن. قم بجدولة ألبوم من لوحة التحكم.");
-                }
+                }).catch(function(err) {
+                    alert("تعذر الاتصال بالبث المباشر. يرجى التأكد من تشغيل السيرفر بالكامل.");
+                    console.log("Error playing stream:", err);
+                });
             } else {
                 player.pause();
+                player.src = ""; // تفريغ الذاكرة من التدفق المستمر عند الإيقاف
                 listenBtn.innerText = "▶ استماع إلى الراديو";
             }
         });
 
+        // إرسال رسائل المستمع إلى المذيع
         sendChatBtn.addEventListener('click', function() {
             var text = chatInput.value.trim();
             if(!text) return;
@@ -128,10 +111,10 @@
             var div = document.createElement('div');
             div.innerHTML = "<b>" + sender + ":</b> " + msg;
             div.style.marginBottom = "5px";
+            if (sender === "المذيع") div.style.color = "#00f2fe";
             chatMessages.appendChild(div);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-</script>
+    </script>
   </body>
 </html>
-
