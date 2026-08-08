@@ -1,11 +1,15 @@
+// ==========================================
+// 🎙️ المتغيرات وإعدادات الرابط الرئيسي للسيرفر
+// ==========================================
 var scheduledEvents = [];
 var mediaRecorder = null;
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
- 
-// استبدال الرابط المحلي برابط Render أونلاين
-var SERVER_URL = "https://smart-radio-king.onrender.com";
+var db = null;
+
+// الرابط المشفر والآمن الخاص بسيرفرك المرفوع على Render
+var SERVER_URL = "https://onrender.com"; 
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
@@ -19,9 +23,9 @@ var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
-var db;
-
-// 1️⃣ إعداد قاعدة البيانات المحلية IndexedDB للجدولة
+// ==========================================
+// 📅 1️⃣ إعداد قاعدة البيانات المحلية IndexedDB للجدولة
+// ==========================================
 var request = indexedDB.open("RadioKingDB", 1);
 request.onupgradeneeded = function(e) {
     var database = e.target.result;
@@ -35,7 +39,7 @@ request.onsuccess = function(e) {
     loadSavedTracks();
 };
 
-// تحديث الساعة وفحص الجدولة التلقائية
+// تحديث الساعة وفحص الجدولة التلقائية كل ثانية
 var lastTriggeredMinute = "";
 setInterval(function() {
     var now = new Date();
@@ -116,7 +120,7 @@ function triggerAlbumPlay(day, time) {
                 var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
                 radioPlayer.src = fileURL;
                 
-                // تحديث اسم المقطع التلقائي محلياً وللسيرفر إن أمكن
+                // حفظ اسم المقطع الحالي محلياً
                 localStorage.setItem('radio_track_title', tracks[trackIndex].name);
                 
                 radioPlayer.play().catch(function() { trackIndex++; playNext(); });
@@ -135,13 +139,16 @@ if (volumeSlider) {
     });
 }
 
-// 2️⃣ تشغيل الميكروفون المباشر وضخه إلى السيرفر عبر الإنترنت
-// 🛠️ الكود المطور والآمن لحماية شبكة الواي فاي من الانقطاع
+// ==========================================
+// 🎤 2️⃣ التحكم في الميكروفون المباشر والبث الآمن
+// ==========================================
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً على الإنترنت...";
-    startMicBtn.disabled = true;
-    stopMicBtn.disabled = false;
-    stopMicBtn.style.background = "#ff0055";
+    if (startMicBtn) startMicBtn.disabled = true;
+    if (stopMicBtn) {
+        stopMicBtn.disabled = false;
+        stopMicBtn.style.backgroundColor = "#ff0055"; // إضاءة الزر باللون الأحمر لبيان النشاط
+    }
 
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioContext.createMediaStreamSource(stream);
@@ -156,40 +163,44 @@ function startRecording(stream) {
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
     
-    // 1️⃣ استخدام صيغة audio/webm المدمجة والمدعومة عالمياً مع تقليل معدل البت (Bitrate) لخفتها
+    // استخدام ترميز صوتي خفيف ومضغوط عالمياً (Opus) لمنع تجميد شبكة الواي فاي المنزلية
     var options = { mimeType: 'audio/webm;codecs=opus' };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'audio/webm' }; // حل بديل إذا كان المتصفح لا يدعم opus
+        options = { mimeType: 'audio/webm' }; 
     }
     
     mediaRecorder = new MediaRecorder(stream, options);
     
     mediaRecorder.ondataavailable = function(e) {
         if (e.data && e.data.size > 0) {
-            // 2️⃣ إرسال البيانات كملف صلب ومكتمل لتخفيف العبء على السيرفر والراوتر
             var audioBlob = new Blob([e.data], { type: 'audio/mpeg' });
             
+            // إرسال قطعة الصوت عبر بروتوكول HTTPS الآمن لمنع حظر المتصفح
             fetch(SERVER_URL + '/api/stream-mic', {
                 method: 'POST',
                 headers: { 'Content-Type': 'audio/mpeg' },
                 body: audioBlob
             }).catch(function(err){ 
-                console.log("خطأ في نقل الصوت:", err); 
+                console.log("خطأ في نقل الصوت للسيرفر:", err); 
             });
         }
     };
     
-    // 3️⃣ تجميع البيانات وإرسالها كل 4000 ميلي ثانية (4 ثوانٍ) بدلاً من ثانية واحدة
-    // هذا يقلل ضغط الطلبات على الراوتر بنسبة 75% ويمنع انقطاع الواي فاي تماماً
+    // تجميع البيانات وإرسال دفعة كل 4 ثوانٍ (4000ms) لحماية الراوتر من طوفان الطلبات
     mediaRecorder.start(4000); 
 }
-
-
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(startRecording)
+            .catch(function(err) {
+                alert("فشل الوصول للميكروفون، تأكد من إعطاء الصلاحية للموقع برابط HTTPS آمن.");
+                console.log(err);
+            });
+        } else {
+            alert("المتصفح لا يدعم تسجيل الميكروفون أو يحظره بسبب روابط غير آمنة.");
         }
     });
 }
@@ -199,14 +210,18 @@ if (stopMicBtn) {
         if (mediaRecorder && mediaRecorder.state !== "inactive") {
             mediaRecorder.stop();
         }
-        // إبلاغ السيرفر بإيقاف بث الميكروفون ليعود للموسيقى الافتراضية
-        fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
+        
+        // إبلاغ السيرفر بإيقاف البث ليعود للموسيقى الخلفية ويقوم بالأرشفة
+        fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' }).catch(function(e){});
 
         if (audioContext) audioContext.close();
         if (statusEl) statusEl.innerText = "إستعداد";
-        startMicBtn.disabled = false;
-        stopMicBtn.disabled = true;
-        stopMicBtn.style.background = "#4a475a";
+        
+        if (startMicBtn) startMicBtn.disabled = false;
+        if (stopMicBtn) {
+            stopMicBtn.disabled = true;
+            stopMicBtn.style.backgroundColor = "#4a475a";
+        }
     });
 }
 
@@ -216,7 +231,9 @@ if (echoSlider) {
     });
 }
 
-// 3️⃣ نظام مزامنة الرسائل والإعجابات الحية من السيرفر وعبر الإنترنت
+// ==========================================
+// 💬 3️⃣ نظام مزامنة الرسائل والإعجابات عبر الإنترنت
+// ==========================================
 if (sendStudioChatBtn) {
     sendStudioChatBtn.addEventListener('click', function() {
         var text = studioChatInput.value.trim();
@@ -230,13 +247,22 @@ if (sendStudioChatBtn) {
             body: JSON.stringify(msgPayload)
         }).then(function() {
             studioChatInput.value = "";
-            fetchChatAndLikes(); // تحديث فوري بعد الإرسال
+            fetchChatAndLikes(); // تحديث الواجهة فوراً بعد الإرسال
+        }).catch(function(err) {
+            console.log("خطأ أثناء إرسال الرسالة:", err);
         });
     });
+    
+    // تشغيل الإرسال عبر النقر على زر Enter
+    if (studioChatInput) {
+        studioChatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendStudioChatBtn.click();
+        });
+    }
 }
 
 function fetchChatAndLikes() {
-    // جلب الشات من السيرفر
+    // جلب الشات الحي من السيرفر أونلاين
     fetch(SERVER_URL + '/api/messages')
     .then(function(res) { return res.json(); })
     .then(function(data) {
@@ -245,32 +271,36 @@ function fetchChatAndLikes() {
         data.forEach(function(msg) {
             var div = document.createElement('div');
             div.style.marginBottom = "5px";
-            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-            studioChatMessages.appendChild(div);
-        });
-        studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-    });
 
-    // جلب الإعجابات من السيرفر
-    fetch(SERVER_URL + '/api/likes')
-    .then(function(res) { return res.json(); })
-    .then(function(likes) {
-        var tbody = document.getElementById('likesTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = "";
-        var tracks = Object.keys(likes);
-        if (tracks.length === 0) {
-            tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-            return;
-        }
-        tracks.forEach(function(track) {
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-            tbody.appendChild(tr);
-        });
-    });
+
+
+div.innerHTML = <b>${msg.sender}:</b> + document.createTextNode(msg.text).textContent; 
+studioChatMessages.appendChild(div); 
+}); 
+studioChatMessages.scrollTop = studioChatMessages.scrollHeight; 
+}).catch(function(e){});
+
+// جدول جذب الإعجابات الحي من السيرفر أونلاين 
+fetch(SERVER_URL + '/api/likes') 
+.then(function(res) { return res.json(); }) 
+.then(function(likes) { 
+var tbody = document.getElementById('likesTableBody'); 
+if (!tbody) return; 
+tbody.innerHTML = ""; 
+var المسارات = Object.keys(likes); 
+if (tracks.length === 0) { 
+tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>; 
+return; 
+} 
+المسارات.forEach(function(track) { 
+var tr = document.createElement('tr'); 
+tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>; 
+tbody.appendChild(tr); 
+} 
+).catch(function(e){}); 
 }
 
-// جلب دوري كل ثانيتين لتحديث الدردشة والتفاعلات تلقائياً من المستمعين
-setInterval(fetchChatAndLikes, 2000);
+// تشغيل البيانات جلب دوراً كل ثانيتين لقراءة تفاعلات ورسائل المستمعين فوراً 
+setInterval(fetchChatAndLikes, 2000); 
 fetchChatAndLikes();
+
