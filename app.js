@@ -16,6 +16,10 @@ var stopMicBtn = document.getElementById('stopMicBtn');
 var volumeSlider = document.getElementById('volumeSlider');
 var echoSlider = document.getElementById('echoSlider');
 
+// رابط سيرفر البث الخاص بك على Render لتحديث الحالة عالمياً
+var RENDER_SERVER_URL = "https://onrender.com";
+
+// إعداد قاعدة البيانات وتوليدها تلقائياً بالهاتف
 var request = indexedDB.open("RadioKingDB", 1);
 
 request.onupgradeneeded = function(e) {
@@ -30,10 +34,11 @@ request.onsuccess = function(e) {
     loadSavedTracks();
 };
 
+// العداد الذكي لمراقبة الوقت وجدولة تشغيل الألبومات تلقائياً
 setInterval(function() {
     var now = new Date();
     if (clockEl) {
-        clockEl.innerText = now.toLocaleTimeString();
+        clockEl.innerText = now.toLocaleTimeString('ar-EG');
     }
 
     var currentDay = now.getDay();
@@ -52,6 +57,7 @@ setInterval(function() {
     }
 }, 1000);
 
+// حفظ الألبومات والملفات الصوتية في ذاكرة الهاتف الكبيرة IndexedDB
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function() {
         var files = document.getElementById('albumFiles').files;
@@ -59,7 +65,7 @@ if (saveSchedBtn) {
         var time = document.getElementById('schedTime').value;
 
         if (files.length === 0 || !time) {
-            alert("Sélectionnez des fichiers et une heure !");
+            alert("يرجى تحديد ملفات صوتية واختيار الوقت أولاً!");
             return;
         }
 
@@ -77,12 +83,13 @@ if (saveSchedBtn) {
         }
 
         transaction.oncomplete = function() {
-            alert("Planification et fichiers sauvegardés !");
+            alert("تم حفظ ملفات الألبوم وجدولة البث بنجاح!");
             loadSavedTracks();
         };
     });
 }
 
+// تحميل المسارات المجدولة من الذاكرة الداخلية
 function loadSavedTracks() {
     if (!db) return;
     var transaction = db.transaction(["tracks"], "readonly");
@@ -102,30 +109,35 @@ function loadSavedTracks() {
     };
 }
 
+// تشغيل الألبوم المجدول ونقل حالته إلى المستمعين عبر الـ LocalStorage
 function triggerAlbumPlay(event) {
     event.isPlaying = true;
     if (statusEl) {
-        statusEl.innerText = "Lecture de l'album...";
+        statusEl.innerText = "بث الألبوم المجدول...";
     }
     var index = 0;
 
     function playNext() {
         if (index < playlistFiles.length) {
             var fileURL = URL.createObjectURL(playlistFiles[index]);
-            radioPlayer.src = fileURL;
+            if (radioPlayer) {
+                radioPlayer.src = fileURL;
+                radioPlayer.play().catch(function(e){ console.log(e); });
+            }
             
             localStorage.setItem('radio_current_src', fileURL);
             localStorage.setItem('radio_track_title', playlistFiles[index].name);
             localStorage.setItem('radio_status', 'Playing');
             
-            radioPlayer.play();
-            radioPlayer.onended = function() {
-                index++;
-                playNext();
-            };
+            if (radioPlayer) {
+                radioPlayer.onended = function() {
+                    index++;
+                    playNext();
+                };
+            }
         } else {
             if (statusEl) {
-                statusEl.innerText = "Prêt";
+                statusEl.innerText = "إستعداد";
             }
             localStorage.setItem('radio_status', 'Ready');
             event.isPlaying = false;
@@ -134,6 +146,7 @@ function triggerAlbumPlay(event) {
     playNext();
 }
 
+// التحكم في مستوى الصوت العام للمذيع
 if (volumeSlider) {
     volumeSlider.addEventListener('input', function(e) {
         if (radioPlayer) {
@@ -142,14 +155,13 @@ if (volumeSlider) {
     });
 }
 
+// هندسة الصوت الحي للميكروفون مع تأثير الصدى والـ Delay
 function startRecording(stream) {
     if (statusEl) {
-        statusEl.innerText = "En direct...";
+        statusEl.innerText = "بث مباشر عبر المايك...";
     }
-    startMicBtn.disabled = true;
-    if (stopMicBtn) {
-        stopMicBtn.disabled = false;
-    }
+    if (startMicBtn) startMicBtn.disabled = true;
+    if (stopMicBtn) stopMicBtn.disabled = false;
 
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioContext.createMediaStreamSource(stream);
@@ -157,8 +169,12 @@ function startRecording(stream) {
     delayNode = audioContext.createDelay();
     feedbackNode = audioContext.createGain();
     
-    delayNode.delayTime.value = 0.3;
-    feedbackNode.gain.value = parseFloat(echoSlider.value);
+    delayNode.delayTime.value = 0.3; 
+    if (echoSlider) {
+        feedbackNode.gain.value = parseFloat(echoSlider.value);
+    } else {
+        feedbackNode.gain.value = 0;
+    }
     
     source.connect(delayNode);
     delayNode.connect(feedbackNode);
@@ -170,6 +186,7 @@ function startRecording(stream) {
     mediaRecorder.ondataavailable = function(e) {
         if (e.data.size > 0) {
             audioChunks.push(e.data);
+            // يمكنك هنا مستقبلاً عمل Fetch لإرسال التدفّق الحي مباشرة لـ Render
         }
     };
     mediaRecorder.start(1000);
@@ -178,25 +195,20 @@ function startRecording(stream) {
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
         navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(startRecording);
+            .then(startRecording)
+            .catch(function(err) {
+                alert("يرجى إعطاء صلاحية الوصول للميكروفون للبث!");
+            });
     });
 }
 
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
-        if (mediaRecorder) {
-            mediaRecorder.stop();
-        }
-        if (audioContext) {
-            audioContext.close();
-        }
-        if (statusEl) {
-            statusEl.innerText = "Prêt";
-        }
-        if (startMicBtn) {
-            startMicBtn.disabled = false;
-        }
-        stopMicBtn.disabled = true;
+        if (mediaRecorder) mediaRecorder.stop();
+        if (audioContext) audioContext.close();
+        if (statusEl) statusEl.innerText = "إستعداد";
+        if (startMicBtn) startMicBtn.disabled = false;
+        if (stopMicBtn) stopMicBtn.disabled = true;
         localStorage.setItem('radio_status', 'Ready');
     });
 }
@@ -209,12 +221,10 @@ if (echoSlider) {
     });
 }
 
-// التزامن التلقائي لاستلام الشات من المستمع وتنبيه المذيع في كونسول الهاتف
+// التزامن التلقائي لاستلام رسائل الشات من المستمعين وتنبيه المذيع باللوحة
 window.addEventListener('storage', function(e) {
     if (e.key === 'chat_listener_msg' && e.newValue) {
         var msgData = e.newValue.split('||')[0];
         console.log("رسالة جديدة من المستمع: " + msgData);
-        // يمكنك مستقبلاً إضافة واجهة شات داخل لوحة المذيع لعرضها بشكل مرئي
     }
 });
-
