@@ -1,7 +1,7 @@
 var express = require('express')
 var fs = require('fs')
 var path = require('path')
-var https = require('https') // استدعاء مكتبة طلبات الشبكة الآمنة
+var https = require('https')
 var app = express()
 var PORT = process.env.PORT || 3000
 
@@ -13,19 +13,24 @@ var radioSchedule = [
 var currentTrack = "default_music.mp3"
 var lastTriggeredMinute = ""
 
-// آلية منع النوم التلقائي للسيرفر (Self-Ping Engine)
+// 1️⃣ إضافة صفحة رئيسية سريعة لـ UptimeRobot لمنع النوم نهائياً
+app.get('/', function(req, res) {
+    res.status(200).send("Radio King Server is Active 24/7!");
+})
+
+// آلية منع النوم التلقائي الذاتية الاستباقية
 setInterval(function() {
-    var selfUrl = "https://smart-radio-king.onrender.com/radio.mp3";
-    console.log("إرسال إشارة تنشيط دورية للسيرفر لمنع الخمول...");
+    // 2️⃣ استهداف الرابط الرئيسي السريع بدلاً من ملف الصوت الضخم
+    var selfUrl = "https://onrender.com";
+    console.log("إرسال إشارة تنشيط خفيفة للرابط الرئيسي...");
     
-    // طلب يغلق نفسه فوراً بمجرد بدء الاستجابة لمنع استهلاك الموارد
     var req = https.get(selfUrl, function(res) {
-        res.destroy(); 
+        res.on('data', function() {}); // استهلاك البيانات السريعة
     });
     req.on('error', function(err) {
         console.log("تنبيه التنشيط الذاتي:", err.message);
     });
-}, 600000); // إرسال طلب كل 10 دقائق لضمان بقاء النطاق نشطاً
+}, 300000); // كل 5 دقائق
 
 // فحص الجدولة الزمنية للمواد الإذاعية
 setInterval(function() {
