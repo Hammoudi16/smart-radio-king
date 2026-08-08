@@ -1,10 +1,12 @@
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
-var audioChunks = [];
+var archiveRecorder = null; // مسجل مخصص لتجميع حزمة الأرشيف الكاملة
+var archiveChunks = [];
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
+var likesData = {};
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
@@ -19,7 +21,6 @@ var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
 var request = indexedDB.open("RadioKingDB", 1);
-
 request.onupgradeneeded = function(e) {
     var database = e.target.result;
     if (!database.objectStoreNames.contains("tracks")) {
@@ -27,20 +28,15 @@ request.onupgradeneeded = function(e) {
         store.createIndex("schedKey", ["day", "time"], { unique: false });
     }
 };
-
 request.onsuccess = function(e) {
     db = e.target.result;
     loadSavedTracks();
 };
 
 var lastTriggeredMinute = "";
-
 setInterval(function() {
     var now = new Date();
-    if (clockEl) {
-        clockEl.innerText = now.toLocaleTimeString();
-    }
-
+    if (clockEl) clockEl.innerText = now.toLocaleTimeString();
     var currentDay = now.getDay();
     var hours = now.getHours().toString().padStart(2, '0');
     var minutes = now.getMinutes().toString().padStart(2, '0');
@@ -71,19 +67,11 @@ if (saveSchedBtn) {
 
         var transaction = db.transaction(["tracks"], "readwrite");
         var store = transaction.objectStore("tracks");
-
         for (var j = 0; j < files.length; j++) {
-            var fileData = {
-                name: files[j].name,
-                blob: files[j],
-                day: day,
-                time: time
-            };
-            store.add(fileData);
+            store.add({ name: files[j].name, blob: files[j], day: day, time: time });
         }
-
         transaction.oncomplete = function() {
-            alert("تم حفظ الجدولة والملفات بنجاح!");
+            alert("تم تفعيل وتثبيت الجدولة بنجاح!");
             loadSavedTracks();
         };
     });
@@ -93,12 +81,10 @@ function loadSavedTracks() {
     if (!db) return;
     var transaction = db.transaction(["tracks"], "readonly");
     var store = transaction.objectStore("tracks");
-    var cursorRequest = store.openCursor();
-
     scheduledEvents = [];
     var uniqueKeys = new Set();
 
-    cursorRequest.onsuccess = function(e) {
+    store.openCursor().onsuccess = function(e) {
         var cursor = e.target.result;
         if (cursor) {
             var key = cursor.value.day + "_" + cursor.value.time;
@@ -112,37 +98,25 @@ function loadSavedTracks() {
 }
 
 function triggerAlbumPlay(day, time) {
-    if (statusEl) statusEl.innerText = "تشغيل الألبوم المجدول...";
+    if (statusEl) statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً...";
     var transaction = db.transaction(["tracks"], "readonly");
-    var store = transaction.objectStore("tracks");
-    var index = store.index("schedKey");
-    var requestTracks = index.getAll([day, time]);
+    var store = transaction.objectStore("tracks").index("schedKey").getAll([day, time]);
 
-    requestTracks.onsuccess = function(e) {
+    store.onsuccess = function(e) {
         var tracks = e.target.result;
         if (tracks.length === 0) return;
         var trackIndex = 0;
 
         function playNext() {
             if (trackIndex < tracks.length) {
-                var currentTrack = tracks[trackIndex];
-                var fileURL = URL.createObjectURL(currentTrack.blob);
+                var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
                 radioPlayer.src = fileURL;
-                
                 localStorage.setItem('radio_current_src', fileURL);
-                localStorage.setItem('radio_track_title', currentTrack.name);
+                localStorage.setItem('radio_track_title', tracks[trackIndex].name);
                 localStorage.setItem('radio_status', 'Playing');
                 
-                radioPlayer.play().catch(function() {
-                    trackIndex++;
-                    playNext();
-                });
-
-                radioPlayer.onended = function() {
-                    URL.revokeObjectURL(fileURL);
-                    trackIndex++;
-                    playNext();
-                };
+                radioPlayer.play().catch(function() { trackIndex++; playNext(); });
+                radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); };
             } else {
                 if (statusEl) statusEl.innerText = "إستعداد";
                 localStorage.setItem('radio_status', 'Ready');
@@ -159,9 +133,9 @@ if (volumeSlider) {
 }
 
 function startRecording(stream) {
-    if (statusEl) statusEl.innerText = "بث مباشر (الميكروفون نشط)...";
+    if (statusEl) statusEl.innerText = "🔴 البث المباشر للميكروفون نشط حالياً...";
     startMicBtn.disabled = true;
-    if (stopMicBtn) stopMicBtn.disabled = false;
+    stopMicBtn.disabled = false;
 
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioContext.createMediaStreamSource(stream);
@@ -177,22 +151,47 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
+    // 1. المسجل الأول: للبث الحي المباشر (مقطع كل 250ms)
     mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
     mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) audioChunks.push(e.data);
+        if (e.data.size > 0) {
+            fetch('https://onrender.com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'audio/mpeg' },
+                body: e.data
+            }).catch(function(err) { console.log(err); });
+        }
     };
-    mediaRecorder.start(1000);
+    mediaRecorder.start(250);
+
+    // 2. المسجل الثاني: لتجميع الحلقة كاملة للأرشيف
+    archiveChunks = [];
+    archiveRecorder = new MediaRecorder(stream);
+    archiveRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) archiveChunks.push(e.data);
+    };
+    archiveRecorder.onstop = function() {
+        var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
+        if (statusEl) statusEl.innerText = "⏳ جاري نقل الحلقة للأرشيف...";
+        
+        // شحن الملف الكامل للسيرفر لحفظه
+        fetch('https://onrender.com', {
+            method: 'POST',
+            headers: { 'Content-Type': 'audio/mpeg' },
+            body: completeBlob
+        }).then(function() {
+            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة)";
+        }).catch(function() {
+            if (statusEl) statusEl.innerText = "إستعداد (فشلت الأرشفة)";
+        });
+    };
+    archiveRecorder.start();
 }
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(startRecording)
-                .catch(function() {
-                    alert("يرجى إعطاء صلاحية الوصول للميكروفون للبث!");
-                });
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
         }
     });
 }
@@ -200,11 +199,11 @@ if (startMicBtn) {
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
         if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        if (archiveRecorder && archiveRecorder.state !== "inactive") archiveRecorder.stop();
         if (audioContext) audioContext.close();
-        if (statusEl) statusEl.innerText = "إستعداد";
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
-        localStorage.setItem('radio_status', 'Ready');
+        fetch('https://onrender.com', { method: 'POST' });
     });
 }
 
@@ -214,7 +213,6 @@ if (echoSlider) {
     });
 }
 
-// معالجة وإرسال رد المذيع للمستمعين
 if (sendStudioChatBtn) {
     sendStudioChatBtn.addEventListener('click', function() {
         var text = studioChatInput.value.trim();
@@ -225,21 +223,35 @@ if (sendStudioChatBtn) {
     });
 }
 
-// استقبال رسائل المستمعين ومزامنتها في لوحة الاستوديو
 window.addEventListener('storage', function(e) {
     if (e.key === 'chat_listener_msg' && e.newValue) {
-        var msgData = e.newValue.split('||')[0];
-        appendStudioMessage("مستمع", msgData);
+        appendStudioMessage("مستمع", e.newValue.split('||'));
+    }
+    if (e.key === 'track_liked_signal' && e.newValue) {
+        var trackName = e.newValue.split('||');
+        if (!likesData[trackName]) likesData[trackName] = 0;
+        likesData[trackName]++;
+        updateLikesTable();
     }
 });
+
+function updateLikesTable() {
+    var tbody = document.getElementById('likesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    var tracks = Object.keys(likesData);
+    tracks.sort(function(a, b) { return likesData[b] - likesData[a]; });
+    for (var i = 0; i < tracks.length; i++) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td>${tracks[i]}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likesData[tracks[i]]} ❤️</td>`;
+        tbody.appendChild(tr);
+    }
+}
 
 function appendStudioMessage(sender, msg) {
     if (!studioChatMessages) return;
     var div = document.createElement('div');
-    var b = document.createElement('b');
-    b.textContent = sender + ": ";
-    div.appendChild(b);
-    div.appendChild(document.createTextNode(msg));
+    div.innerHTML = `<b>${sender}:</b> ` + document.createTextNode(msg).textContent;
     div.style.marginBottom = "5px";
     studioChatMessages.appendChild(div);
     studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
