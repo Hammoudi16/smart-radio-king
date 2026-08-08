@@ -263,3 +263,22 @@ function renderLikes() {
     if (!tbody) return;
     tbody.innerHTML = "";
     var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
+
+
+var tracks = Object.keys(likes);
+if (tracks.length === 0) {
+tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>;
+return;
+}
+tracks.forEach(function(track) {
+var tr = document.createElement('tr');
+tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
+tbody.appendChild(tr);
+});
+}
+
+renderChat();
+renderLikes();
+
+
+
