@@ -8,8 +8,9 @@ var delayNode = null;
 var feedbackNode = null;
 var db = null;
 
-// الرابط المشفر والآمن الخاص بسيرفرك المرفوع على Render
-var SERVER_URL = "https://onrender.com";
+// الرابط المشفر والآمن لـ Render
+var SERVER_URL = "https://onrender.com"; 
+
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
 var statusEl = document.getElementById('currentStatus');
@@ -23,46 +24,57 @@ var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
 // ==========================================
-// 📅 1️⃣ إعداد قاعدة البيانات المحلية IndexedDB للجدولة
+// ⏱️ تشغيل الساعة وفحص الجدولة (محمي تماماً)
 // ==========================================
-var request = indexedDB.open("RadioKingDB", 1);
-request.onupgradeneeded = function(e) {
-    var database = e.target.result;
-    if (!database.objectStoreNames.contains("tracks")) {
-        var store = database.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
-        store.createIndex("schedKey", ["day", "time"], { unique: false });
-    }
-};
-request.onsuccess = function(e) {
-    db = e.target.result;
-    loadSavedTracks();
-};
-
-// تحديث الساعة وفحص الجدولة التلقائية كل ثانية
 var lastTriggeredMinute = "";
 setInterval(function() {
-    var now = new Date();
-    if (clockEl) clockEl.innerText = now.toLocaleTimeString();
+    try {
+        var now = new Date();
+        if (clockEl) clockEl.innerText = now.toLocaleTimeString();
 
-    var currentDay = now.getDay();
-    var hours = now.getHours().toString().padStart(2, '0');
-    var minutes = now.getMinutes().toString().padStart(2, '0');
-    var currentTime = hours + ":" + minutes;
+        var currentDay = now.getDay();
+        var hours = now.getHours().toString().padStart(2, '0');
+        var minutes = now.getMinutes().toString().padStart(2, '0');
+        var currentTime = hours + ":" + minutes;
 
-    if (currentTime === lastTriggeredMinute) return;
+        if (currentTime === lastTriggeredMinute) return;
 
-    for (var i = 0; i < scheduledEvents.length; i++) {
-        var event = scheduledEvents[i];
-        if (event.day == currentDay && event.time == currentTime) {
-            lastTriggeredMinute = currentTime;
-            triggerAlbumPlay(event.day, event.time);
-            break;
+        for (var i = 0; i < scheduledEvents.length; i++) {
+            var event = scheduledEvents[i];
+            if (event.day == currentDay && event.time == currentTime) {
+                lastTriggeredMinute = currentTime;
+                triggerAlbumPlay(event.day, event.time);
+                break;
+            }
         }
+    } catch (e) {
+        console.log("خطأ في مؤقت الساعة:", e);
     }
 }, 1000);
 
+// ==========================================
+// 📅 1️⃣ إعداد قاعدة البيانات المحلية IndexedDB
+// ==========================================
+try {
+    var request = indexedDB.open("RadioKingDB", 1);
+    request.onupgradeneeded = function(e) {
+        var database = e.target.result;
+        if (!database.objectStoreNames.contains("tracks")) {
+            var store = database.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+            store.createIndex("schedKey", ["day", "time"], { unique: false });
+        }
+    };
+    request.onsuccess = function(e) {
+        db = e.target.result;
+        loadSavedTracks();
+    };
+} catch(e) {
+    console.log("IndexedDB غير مدعوم أو به خطأ:", e);
+}
+
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function() {
+        if (!db) { alert("قاعدة البيانات غير جاهزة بعد!"); return; }
         var files = document.getElementById('albumFiles').files;
         var day = document.getElementById('schedDay').value;
         var time = document.getElementById('schedTime').value;
@@ -106,6 +118,7 @@ function loadSavedTracks() {
 
 function triggerAlbumPlay(day, time) {
     if (statusEl) statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً...";
+    if (!db) return;
     var transaction = db.transaction(["tracks"], "readonly");
     var store = transaction.objectStore("tracks").index("schedKey").getAll([day, time]);
 
@@ -115,11 +128,9 @@ function triggerAlbumPlay(day, time) {
         var trackIndex = 0;
 
         function playNext() {
-            if (trackIndex < tracks.length) {
+            if (trackIndex < tracks.length && radioPlayer) {
                 var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
                 radioPlayer.src = fileURL;
-                
-                // حفظ اسم المقطع الحالي محلياً
                 localStorage.setItem('radio_track_title', tracks[trackIndex].name);
                 
                 radioPlayer.play().catch(function() { trackIndex++; playNext(); });
@@ -146,47 +157,44 @@ function startRecording(stream) {
     if (startMicBtn) startMicBtn.disabled = true;
     if (stopMicBtn) {
         stopMicBtn.disabled = false;
-        stopMicBtn.style.backgroundColor = "#ff0055"; // إضاءة الزر باللون الأحمر لبيان النشاط
+        stopMicBtn.style.backgroundColor = "#ff0055";
     }
 
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    var source = audioContext.createMediaStreamSource(stream);
-    
-    // إنشاء تأثير الصدى (Echo) للمذيع
-    delayNode = audioContext.createDelay();
-    feedbackNode = audioContext.createGain();
-    delayNode.delayTime.value = 0.3;
-    feedbackNode.gain.value = echoSlider ? parseFloat(echoSlider.value) : 0;
-    
-    source.connect(delayNode);
-    delayNode.connect(feedbackNode);
-    feedbackNode.connect(delayNode);
-    
-    // استخدام ترميز صوتي خفيف ومضغوط عالمياً (Opus) لمنع تجميد شبكة الواي فاي المنزلية
-    var options = { mimeType: 'audio/webm;codecs=opus' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'audio/webm' }; 
-    }
-    
-    mediaRecorder = new MediaRecorder(stream, options);
-    
-    mediaRecorder.ondataavailable = function(e) {
-        if (e.data && e.data.size > 0) {
-            var audioBlob = new Blob([e.data], { type: 'audio/mpeg' });
-            
-            // إرسال قطعة الصوت عبر بروتوكول HTTPS الآمن لمنع حظر المتصفح
-            fetch(SERVER_URL + '/api/stream-mic', {
-                method: 'POST',
-                headers: { 'Content-Type': 'audio/mpeg' },
-                body: audioBlob
-            }).catch(function(err){ 
-                console.log("خطأ في نقل الصوت للسيرفر:", err); 
-            });
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        var source = audioContext.createMediaStreamSource(stream);
+        
+        delayNode = audioContext.createDelay();
+        feedbackNode = audioContext.createGain();
+        delayNode.delayTime.value = 0.3;
+        feedbackNode.gain.value = echoSlider ? parseFloat(echoSlider.value) : 0;
+        
+        source.connect(delayNode);
+        delayNode.connect(feedbackNode);
+        feedbackNode.connect(delayNode);
+        
+        var options = { mimeType: 'audio/webm;codecs=opus' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = { mimeType: 'audio/webm' }; 
         }
-    };
-    
-    // تجميع البيانات وإرسال دفعة كل 4 ثوانٍ (4000ms) لحماية الراوتر من طوفان الطلبات
-    mediaRecorder.start(4000); 
+        
+        mediaRecorder = new MediaRecorder(stream, options);
+        
+        mediaRecorder.ondataavailable = function(e) {
+            if (e.data && e.data.size > 0) {
+                var audioBlob = new Blob([e.data], { type: 'audio/mpeg' });
+                fetch(SERVER_URL + '/api/stream-mic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'audio/mpeg' },
+                    body: audioBlob
+                }).catch(function(err){ console.log(err); });
+            }
+        };
+        
+        mediaRecorder.start(4000); 
+    } catch(err) {
+        console.log("خطأ أثناء تفعيل تسجيل الميكروفون:", err);
+    }
 }
 
 if (startMicBtn) {
@@ -195,11 +203,10 @@ if (startMicBtn) {
             navigator.mediaDevices.getUserMedia({ audio: true })
             .then(startRecording)
             .catch(function(err) {
-                alert("فشل الوصول للميكروفون، تأكد من إعطاء الصلاحية للموقع برابط HTTPS آمن.");
-                console.log(err);
+                alert("يرجى إعطاء صلاحية الميكروفون للمتصفح أولاً.");
             });
         } else {
-            alert("المتصفح لا يدعم تسجيل الميكروفون أو يحظره بسبب روابط غير آمنة.");
+            alert("المتصفح لا يدعم تسجيل الميكروفون في هذه البيئة.");
         }
     });
 }
@@ -209,8 +216,6 @@ if (stopMicBtn) {
         if (mediaRecorder && mediaRecorder.state !== "inactive") {
             mediaRecorder.stop();
         }
-        
-        // إبلاغ السيرفر بإيقاف البث ليعود للموسيقى الخلفية ويقوم بالأرشفة
         fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' }).catch(function(e){});
 
         if (audioContext) audioContext.close();
@@ -246,13 +251,12 @@ if (sendStudioChatBtn) {
             body: JSON.stringify(msgPayload)
         }).then(function() {
             studioChatInput.value = "";
-            fetchChatAndLikes(); // تحديث الواجهة فوراً بعد الإرسال
+            fetchChatAndLikes();
         }).catch(function(err) {
-            console.log("خطأ أثناء إرسال الرسالة:", err);
+            console.log(err);
         });
     });
     
-    // تشغيل الإرسال عبر النقر على زر Enter
     if (studioChatInput) {
         studioChatInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendStudioChatBtn.click();
@@ -261,7 +265,9 @@ if (sendStudioChatBtn) {
 }
 
 function fetchChatAndLikes() {
-    // جلب الشات الحي من السيرفر أونلاين
+    if (!SERVER_URL) return;
+
+    // جلب الشات
     fetch(SERVER_URL + '/api/messages')
     .then(function(res) { return res.json(); })
     .then(function(data) {
@@ -270,36 +276,33 @@ function fetchChatAndLikes() {
         data.forEach(function(msg) {
             var div = document.createElement('div');
             div.style.marginBottom = "5px";
-
-
-
-div.innerHTML = <b>${msg.sender}:</b> + document.createTextNode(msg.text).textContent; 
-studioChatMessages.appendChild(div); 
-}); 
-studioChatMessages.scrollTop = studioChatMessages.scrollHeight; 
+            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+studioChatMessages.appendChild(div);
+});
+studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
 }).catch(function(e){});
 
-// جدول جذب الإعجابات الحي من السيرفر أونلاين 
-fetch(SERVER_URL + '/api/likes') 
-.then(function(res) { return res.json(); }) 
-.then(function(likes) { 
-var tbody = document.getElementById('likesTableBody'); 
-if (!tbody) return; 
-tbody.innerHTML = ""; 
-var المسارات = Object.keys(likes); 
-if (tracks.length === 0) { 
-tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>; 
-return; 
-} 
-المسارات.forEach(function(track) { 
-var tr = document.createElement('tr'); 
-tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>; 
-tbody.appendChild(tr); 
-} 
-).catch(function(e){}); 
+// جلب الإعجابات
+fetch(SERVER_URL + '/api/likes')
+.then(function(res) { return res.json(); })
+.then(function(likes) {
+var tbody = document.getElementById('likesTableBody');
+if (!tbody) return;
+tbody.innerHTML = "";
+var tracks = Object.keys(likes);
+if (tracks.length === 0) {
+tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>;
+return;
+}
+tracks.forEach(function(track) {
+var tr = document.createElement('tr');
+tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
+tbody.appendChild(tr);
+});
+}).catch(function(e){});
 }
 
-// تشغيل البيانات جلب دوراً كل ثانيتين لقراءة تفاعلات ورسائل المستمعين فوراً 
-setInterval(fetchChatAndLikes, 2000); 
+// تشغيل الجلب الدوري كل ثانيتين فور تحميل الصفحة
+setInterval(fetchChatAndLikes, 2000);
 fetchChatAndLikes();
 
