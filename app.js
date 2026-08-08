@@ -1,7 +1,6 @@
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
-var archiveChunks = [];
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
@@ -17,8 +16,6 @@ var echoSlider = document.getElementById('echoSlider');
 var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
-
-var serverUrl = "https://onrender.com";
 
 // إعداد قاعدة البيانات المحلية IndexedDB للجدولة
 var request = indexedDB.open("RadioKingDB", 1);
@@ -135,7 +132,7 @@ if (volumeSlider) {
     });
 }
 
-// 🎤 تشغيل الميكروفون المباشر للاستوديو مع الحفظ السحابي للأرشيف عند الإيقاف
+// تشغيل الميكروفون المباشر للاستوديو
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
     startMicBtn.disabled = true;
@@ -155,31 +152,7 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
-    archiveChunks = [];
     mediaRecorder = new MediaRecorder(stream);
-    
-    mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) archiveChunks.push(e.data);
-    };
-
-    // عند الضغط على إيقاف البث، يتم رفع الحلقة كاملة للسيرفر لحفظها في الأرشيف العالمي
-    mediaRecorder.onstop = function() {
-        var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
-        if (statusEl) statusEl.innerText = "⏳ جاري نقل وتأمين الحلقة في الأرشيف المباشر...";
-        
-        fetch(serverUrl + '/api/archive', {
-            method: 'POST',
-            headers: { 'Content-Type': 'audio/mpeg' },
-            body: completeBlob
-        })
-        .then(function() {
-            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
-        })
-        .catch(function() {
-            if (statusEl) statusEl.innerText = "إستعداد";
-        });
-    };
-
     mediaRecorder.start(1000);
 }
 
@@ -191,15 +164,11 @@ if (startMicBtn) {
     });
 }
 
-// 🛠️ تصحيح أزرار الإيقاف والعودة الآمنة لتجنب تعليق الهاتف
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop(); 
-        }
-        if (audioContext) {
-            audioContext.close();
-        }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        if (audioContext) audioContext.close();
+        if (statusEl) statusEl.innerText = "إستعداد";
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
     });
@@ -211,55 +180,64 @@ if (echoSlider) {
     });
 }
 
-// 💬 نظام مزامنة الرسائل والإعجابات عبر خادم الإنترنت (Render) كل 3 ثوانٍ
-setInterval(function() {
-    fetch(serverUrl + '/api/messages')
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (studioChatMessages) {
-                studioChatMessages.innerHTML = "";
-                data.forEach(function(msg) {
-                    var div = document.createElement('div');
-                    div.style.marginBottom = "5px";
-                    div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-                    studioChatMessages.appendChild(div);
-                });
-                studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-            }
-        }).catch(function(e){});
-
-    fetch(serverUrl + '/api/likes')
-        .then(function(res) { return res.json(); })
-        .then(function(likes) {
-            var tbody = document.getElementById('likesTableBody');
-            if (tbody) {
-                tbody.innerHTML = "";
-                var tracks = Object.keys(likes);
-                if (tracks.length === 0) {
-                    tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-                    return;
-                }
-                tracks.forEach(function(track) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-                    tbody.appendChild(tr);
-                });
-            }
-        }).catch(function(e){});
-}, 3000);
-
+// 💬 نظام مزامنة الرسائل محلياً والمجرب بالمحاكاة وبدون سيرفر
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.onclick = function() {
+    sendStudioChatBtn.addEventListener('click', function() {
         var text = studioChatInput.value.trim();
         if (!text) return;
         
-        fetch(serverUrl + '/api/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender: "أنت (المذيع)", text: text })
-        })
-        .then(function(res) {
-            if (res.ok) studioChatInput.value = "";
-        }).catch(function(e){});
-    };
+        var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+        currentChat.push({ sender: "أنت (المذيع)", text: text });
+        localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
+        
+        // إشارة تحديث فورية للمتصفح الآخر
+        localStorage.setItem('chat_update_trigger', Date.now()); 
+        
+        studioChatInput.value = "";
+        renderChat();
+    });
 }
+
+window.addEventListener('storage', function(e) {
+    if (e.key === 'chat_update_trigger') {
+        renderChat();
+    }
+    if (e.key === 'like_update_trigger') {
+        renderLikes();
+    }
+});
+
+function renderChat() {
+    if (!studioChatMessages) return;
+    studioChatMessages.innerHTML = "";
+    var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+    currentChat.forEach(function(msg) {
+        var div = document.createElement('div');
+        div.style.marginBottom = "5px";
+        div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+        studioChatMessages.appendChild(div);
+    });
+    studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+}
+
+function renderLikes() {
+    var tbody = document.getElementById('likesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
+    var tracks = Object.keys(likes);
+    if (tracks.length === 0) {
+        tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
+        return;
+    }
+    tracks.forEach(function(track) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// رندرة أولية عند تشغيل الواجهة لقراءة البيانات المخزنة
+renderChat();
+renderLikes();
+
