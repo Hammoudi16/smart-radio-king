@@ -1,7 +1,7 @@
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
-var archiveRecorder = null; // مسجل مخصص لتجميع حلقة الأرشيف الكاملة
+var archiveRecorder = null; 
 var archiveChunks = [];
 var audioContext = null;
 var delayNode = null;
@@ -15,13 +15,15 @@ var startMicBtn = document.getElementById('startMicBtn');
 var stopMicBtn = document.getElementById('stopMicBtn');
 var volumeSlider = document.getElementById('volumeSlider');
 var echoSlider = document.getElementById('echoSlider');
+
+// التأكد من جلب عناصر الشات والرد بالأسماء الصحيحة المتطابقة مع الـ HTML
 var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
 var serverUrl = "https://onrender.com";
 
-// 1️⃣ إعداد وإدارة قاعدة البيانات المحلية IndexedDB
+// إعداد قاعدة البيانات المحلية IndexedDB
 var request = indexedDB.open("RadioKingDB", 1);
 request.onupgradeneeded = function(e) {
     var database = e.target.result;
@@ -35,7 +37,7 @@ request.onsuccess = function(e) {
     loadSavedTracks();
 };
 
-// 2️⃣ ميقاتي الساعة وفحص الجدولة الأسبوعية التلقائية
+// ميقاتي الساعة وفحص الجدولة الأسبوعية
 var lastTriggeredMinute = "";
 setInterval(function() {
     var now = new Date();
@@ -136,7 +138,7 @@ if (volumeSlider) {
     });
 }
 
-// 3️⃣ تفعيل وبث الميكروفون المباشر وتمريره للسيرفر مع الحفظ للأرشيف
+// تشغيل الميكروفون المباشر وتفعيل الحفظ للأرشيف
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 البث المباشر للميكروفون نشط حالياً...";
     startMicBtn.disabled = true;
@@ -156,7 +158,7 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
-    // المسجل الأول: للبث الحي المباشر (مقطع صوتي خفيف كل 250ms)
+    // المسجل الأول: للبث الحي الفوري
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = function(e) {
         if (e.data.size > 0) {
@@ -164,30 +166,16 @@ function startRecording(stream) {
                 method: 'POST',
                 headers: { 'Content-Type': 'audio/mpeg' },
                 body: e.data
-            }).catch(function(err) { console.log("خطأ في إرسال دفقات البث المباشر:", err); });
+            }).catch(function(err) { console.log(err); });
         }
     };
     mediaRecorder.start(250);
 
-    // المسجل الثاني: لتجميع الحلقة كاملة وإرسالها للأرشيف عند الضغط على إيقاف
+    // المسجل الثاني: لتجميع الحلقة وتصديرها للأرشيف عند الإيقاف
     archiveChunks = [];
     archiveRecorder = new MediaRecorder(stream);
     archiveRecorder.ondataavailable = function(e) {
         if (e.data.size > 0) archiveChunks.push(e.data);
-    };
-    archiveRecorder.onstop = function() {
-        var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
-        if (statusEl) statusEl.innerText = "⏳ جاري نقل الحلقة للأرشيف...";
-        
-        fetch(serverUrl + '/api/archive', {
-            method: 'POST',
-            headers: { 'Content-Type': 'audio/mpeg' },
-            body: completeBlob
-        }).then(function() {
-            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
-        }).catch(function() {
-            if (statusEl) statusEl.innerText = "إستعداد (فشلت الأرشفة)";
-        });
     };
     archiveRecorder.start();
 }
@@ -200,10 +188,29 @@ if (startMicBtn) {
     });
 }
 
+// إصلاح زر الإيقاف الآمن ومحرك إنتاج الأرشيف تلقائياً
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
         if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        if (archiveRecorder && archiveRecorder.state !== "inactive") archiveRecorder.stop();
+        
+        if (archiveRecorder && archiveRecorder.state !== "inactive") {
+            archiveRecorder.onstop = function() {
+                var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
+                if (statusEl) statusEl.innerText = "⏳ جاري نقل الحلقة للأرشيف...";
+                
+                fetch(serverUrl + '/api/archive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'audio/mpeg' },
+                    body: completeBlob
+                }).then(function() {
+                    if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
+                }).catch(function() {
+                    if (statusEl) statusEl.innerText = "إستعداد (فشلت الأرشفة)";
+                });
+            };
+            archiveRecorder.stop();
+        }
+        
         if (audioContext) audioContext.close();
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
@@ -217,9 +224,8 @@ if (echoSlider) {
     });
 }
 
-// 4️⃣ المزامنة الحية عبر الإنترنت (CORS الحل الشامل لدردشة المستمعين ونظام القلوب)
+// التزامن الحي وجلب رسائل الشات والقلوب من السيرفر وعرضها للمذيع
 setInterval(function() {
-    // جلب رسائل الشات القادمة من صفحة المستمعين على جيتهاب
     fetch(serverUrl + '/api/messages')
         .then(function(res) { return res.json(); })
         .then(function(data) {
@@ -235,7 +241,6 @@ setInterval(function() {
             }
         }).catch(function(e){});
 
-    // جلب إحصائيات الإعجابات وتحديث جدول لوحة التحكم تلقائياً
     fetch(serverUrl + '/api/likes')
         .then(function(res) { return res.json(); })
         .then(function(likes) {
@@ -255,17 +260,24 @@ setInterval(function() {
             }
         }).catch(function(e){});
 }, 3000);
-// رد المذيع على المستمعين وإرسال النص للسيرفر
+
+
+
+// إصلاح وتفعيل زر الإرسال للمذيع وتنظيف الصندوق فوراً
 if (sendStudioChatBtn) {
-sendStudioChatBtn.addEventListener('click', function() {
+sendStudioChatBtn.onclick = function() {
 var text = studioChatInput.value.trim();
 if (!text) return;
+
 fetch(serverUrl + '/api/messages', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ sender: "أنت (المذيع)", text: text })
-}).then(function() { studioChatInput.value = ""; });
-});
+})
+.then(function(res) {
+if (res.ok) { studioChatInput.value = ""; }
+}).catch(function(e){});
+};
 }
 
 
