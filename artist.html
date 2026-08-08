@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>صفحة الفنان - البث والدردشة</title>
+<style>
+        body { font-family: Arial, sans-serif; background: #0f0c1b; color: #fff; text-align: center; padding: 20px; }
+        .profile-card { background: #1a1528; padding: 25px; border-radius: 15px; max-width: 450px; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .avatar { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #ff007f; margin-bottom: 15px; }
+        .btn-play { background: #ff007f; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; transition: 0.3s; }
+        .btn-play:hover { transform: scale(1.05); }
+        .badge { background: #00f2fe; color: #000; padding: 5px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+        .now-playing { font-style: italic; color: #00f2fe; margin-top: 10px; }
+        
+        .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; margin-top: 15px; }
+        .gallery-item { background: #251f38; border-radius: 8px; padding: 10px; border: 1px solid #3c355a; }
+        .gallery-img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; }
+        
+        .chat-box { text-align: right; }
+        .chat-messages { height: 150px; overflow-y: auto; background: #0a0714; border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #3c355a; font-size: 14px; }
+        .chat-input-row { display: flex; gap: 5px; }
+        .chat-input { flex: 1; background: #251f38; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; }
+        .chat-btn { background: #00f2fe; color: black; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+</style>
+  </head>
+  <body>
+
+    <!-- كارت البث الرئيسي -->
+    <div class="profile-card">
+      <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
+      <h2>إذاعة الفنان المباشرة</h2>
+      <p><span class="badge" id="liveBadge">في الانتظار</span></p>
+      <p class="now-playing" id="trackName">لا يوجد بث حالياً</p>
+      <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو</button>
+      <audio id="streamPlayer"></audio>
+    </div>
+
+    <!-- معرض صور الألبومات والبودكاست المرئي -->
+    <div class="profile-card">
+      <h3>🎵 معرض ألبومات الفنان المرئي</h3>
+      <div class="gallery">
+        <div class="gallery-item">
+          <img src="https://picsum.photos" class="gallery-img">
+          <p style="font-size:13px; margin:5px 0 0 0;">بودكاست خواطر</p>
+        </div>
+        <div class="gallery-item">
+          <img src="https://picsum.photos" class="gallery-img">
+          <p style="font-size:13px; margin:5px 0 0 0;">ألبوم الموسيقى الهادئة</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- مساحة الدردشة الحية وتلقي الرسائل -->
+    <div class="profile-card chat-box">
+      <h3>💬 دردشة المستمعين الحية</h3>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
+        <button id="sendChatBtn" class="chat-btn">إرسال</button>
+      </div>
+    </div>
+
+<script>
+        var player = document.getElementById('streamPlayer');
+        var listenBtn = document.getElementById('listenBtn');
+        var liveBadge = document.getElementById('liveBadge');
+        var trackName = document.getElementById('trackName');
+        var chatMessages = document.getElementById('chatMessages');
+        var chatInput = document.getElementById('chatInput');
+        var sendChatBtn = document.getElementById('sendChatBtn');
+
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'radio_current_src' && e.newValue) {
+                player.src = e.newValue;
+                if (!player.paused || listenBtn.innerText.indexOf('إيقاف') !== -1) {
+                    player.play();
+                }
+                if (liveBadge) {
+                    liveBadge.innerText = "🔴 بث مباشر شغال";
+                    liveBadge.style.background = "#ff007f";
+                }
+            }
+            if (e.key === 'radio_track_title' && e.newValue && trackName) {
+                trackName.innerText = "المقطع الحالي: " + e.newValue;
+            }
+            if (e.key === 'radio_status' && e.newValue === 'Ready') {
+                if (liveBadge) {
+                    liveBadge.innerText = "في الانتظار";
+                    liveBadge.style.background = "#00f2fe";
+                }
+                if (trackName) {
+                    trackName.innerText = "انتهى البث التلقائي";
+                }
+                player.pause();
+            }
+            // استقبال الرسائل المرتدة من لوحة تحكم المذيع
+            if (e.key === 'chat_sync_msg' && e.newValue) {
+                appendMessage("المذيع", e.newValue);
+            }
+        });
+
+        listenBtn.addEventListener('click', function() {
+            var savedSrc = localStorage.getItem('radio_current_src');
+            if (player.paused) {
+                if (savedSrc) {
+                    player.src = savedSrc;
+                    player.play();
+                    listenBtn.innerText = "⏸ إيقاف مؤقت";
+                } else {
+                    alert("الإذاعة لا تبث أي شيء الآن. قم بجدولة ألبوم من لوحة التحكم.");
+                }
+            } else {
+                player.pause();
+                listenBtn.innerText = "▶ استماع إلى الراديو";
+            }
+        });
+
+        sendChatBtn.addEventListener('click', function() {
+            var text = chatInput.value.trim();
+            if(!text) return;
+            appendMessage("مستمع", text);
+            localStorage.setItem('chat_listener_msg', text + "||" + Date.now());
+            chatInput.value = "";
+        });
+
+        function appendMessage(sender, msg) {
+            var div = document.createElement('div');
+            div.innerHTML = "<b>" + sender + ":</b> " + msg;
+            div.style.marginBottom = "5px";
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+</script>
+  </body>
+</html>
+

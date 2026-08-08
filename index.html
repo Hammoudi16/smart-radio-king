@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم راديو كينج الذكي</title>
+<style>
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
+        .card { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:disabled { background: #555; }
+        .status { color: #00f7ff; font-weight: bold; }
+        input, select { background: #222; color: #fff; border: 1px solid #444; padding: 5px; border-radius: 4px; margin: 5px; }
+        input[type="range"] { width: 100%; }
+</style>
+  </head>
+  <body>
+
+    <h1>🎙️ لوحة تحكم البث المباشر (بدون سيرفر)</h1>
+
+    <div class="card">
+      <h3>الحالة الحالية: <span id="currentStatus" class="status">إستعداد</span></h3>
+      <p>الوقت الحالي: <span id="clock">00:00:00</span></p>
+    </div>
+
+    <div class="card">
+      <h3>🎤 البث المباشر عبر الميكروفون</h3>
+      <button id="startMicBtn">تشغيل الميكروفون والبث</button>
+      <button id="stopMicBtn" disabled>إيقاف البث المباشر</button>
+    </div>
+
+    <div class="card">
+      <h3>🎛️ Table de Mixage & Effets</h3>
+      <label>Volume Général :</label>
+      <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+
+      <br><br>
+      <label>Effet Écho Réverbération (Micro) :</label>
+      <input type="range" id="echoSlider" min="0" max="0.8" step="0.1" value="0">
+    </div>
+
+    <div class="card">
+      <h3>📅 جدولة الألبومات والبودكاست</h3>
+      <input type="file" id="albumFiles" multiple accept="audio/*">
+      <br>
+      <label>اليوم:</label>
+      <select id="schedDay">
+        <option value="0">الأحد</option>
+        <option value="1">الإثنين</option>
+        <option value="2">الثلاثاء</option>
+        <option value="3">الأربعاء</option>
+        <option value="4">الخميس</option>
+        <option value="5">الجمعة</option>
+        <option value="6">السبت</option>
+      </select>
+
+      <label>الساعة والدقيقة:</label>
+      <input type="time" id="schedTime">
+      <br><br>
+      <button id="saveSchedBtn">حفظ الجدولة في الذاكرة</button>
+    </div>
+
+    <audio id="radioPlayer" controls style="display:none;"></audio>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
