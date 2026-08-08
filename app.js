@@ -1,7 +1,7 @@
 var db = null;
 var scheduledEvents = [];
-var mediaRecorder = null; // مسجل الصوت الفعلي للميكروفون
-var archiveChunks = [];   // مصفوفة تجميع دفقات الحلقة للحفظ
+var mediaRecorder = null;
+var archiveChunks = [];
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
@@ -135,13 +135,12 @@ if (volumeSlider) {
     });
 }
 
-// 🎤 تشغيل الميكروفون المباشر وتجهيز مصفوفة الحفظ محلياً
+// 🎤 تشغيل الميكروفون المباشر للاستوديو مع الحفظ السحابي للأرشيف عند الإيقاف
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
     startMicBtn.disabled = true;
     stopMicBtn.disabled = false;
 
-    // بناء محرك الصوت لإحداث الصدى والريبورت الفوري للمذيع
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioContext.createMediaStreamSource(stream);
     delayNode = audioContext.createDelay();
@@ -156,59 +155,47 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
-    // تفريغ مصفوفة الحلقات السابقة وبدء المسجل الفعلي
     archiveChunks = [];
     mediaRecorder = new MediaRecorder(stream);
     
     mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) {
-            archiveChunks.push(e.data); // تجميع قطع الصوت لإنتاج الحلقة كاملة
-        }
+        if (e.data.size > 0) archiveChunks.push(e.data);
     };
 
-    // معالجة الحدث عند الضغط على إيقاف البث لإنتاج رابط الأرشيف
+    // عند الضغط على إيقاف البث، يتم رفع الحلقة كاملة للسيرفر لحفظها في الأرشيف العالمي
     mediaRecorder.onstop = function() {
-        if (archiveChunks.length > 0) {
-            var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
-            var archiveUrl = URL.createObjectURL(completeBlob);
-            
-            // تخزين دائم للحلقة المؤرشفة في الذاكرة المشتركة للمستمعين
-            var existingArchive = JSON.parse(localStorage.getItem('radio_global_archive') || "[]");
-            existingArchive.push({ id: Date.now(), url: archiveUrl, date: new Date().toLocaleTimeString() });
-            localStorage.setItem('radio_global_archive', JSON.stringify(existingArchive));
-            
-            // إرسال نبضة تحديث دورية للمتصفح الآخر
-            localStorage.setItem('archive_update_trigger', Date.now());
-            
+        var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
+        if (statusEl) statusEl.innerText = "⏳ جاري نقل وتأمين الحلقة في الأرشيف المباشر...";
+        
+        fetch(serverUrl + '/api/archive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'audio/mpeg' },
+            body: completeBlob
+        })
+        .then(function() {
             if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
-        } else {
+        })
+        .catch(function() {
             if (statusEl) statusEl.innerText = "إستعداد";
-        }
+        });
     };
 
-    // نطلب من المسجل فحص وتقطيع الداتا كل ثانية لضمان الاستقرار
     mediaRecorder.start(1000);
 }
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(startRecording)
-                .catch(function(err) {
-                    alert("يرجى إعطاء صلاحية الوصول للميكروفون من إعدادات المتصفح أولاً!");
-                });
-        } else {
-            alert("المتصفح لا يدعم تكنولوجيا الميكروفون المباشر.");
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
         }
     });
 }
 
-// 🛠️ تصحيح زر إيقاف البث وإغلاق محرك الصوت بطريقة آمنة بدون تعليق
+// 🛠️ تصحيح أزرار الإيقاف والعودة الآمنة لتجنب تعليق الهاتف
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
         if (mediaRecorder && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop(); // هذا السطر سيقوم بتشغيل دالة onstop وحفظ الحلقة تلقائياً
+            mediaRecorder.stop(); 
         }
         if (audioContext) {
             audioContext.close();
@@ -224,61 +211,55 @@ if (echoSlider) {
     });
 }
 
-// 💬 نظام مزامنة الرسائل محلياً والمجرب بالمحاكاة وبدون سيرفر
+// 💬 نظام مزامنة الرسائل والإعجابات عبر خادم الإنترنت (Render) كل 3 ثوانٍ
+setInterval(function() {
+    fetch(serverUrl + '/api/messages')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (studioChatMessages) {
+                studioChatMessages.innerHTML = "";
+                data.forEach(function(msg) {
+                    var div = document.createElement('div');
+                    div.style.marginBottom = "5px";
+                    div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+                    studioChatMessages.appendChild(div);
+                });
+                studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+            }
+        }).catch(function(e){});
+
+    fetch(serverUrl + '/api/likes')
+        .then(function(res) { return res.json(); })
+        .then(function(likes) {
+            var tbody = document.getElementById('likesTableBody');
+            if (tbody) {
+                tbody.innerHTML = "";
+                var tracks = Object.keys(likes);
+                if (tracks.length === 0) {
+                    tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
+                    return;
+                }
+                tracks.forEach(function(track) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+        }).catch(function(e){});
+}, 3000);
+
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.addEventListener('click', function() {
+    sendStudioChatBtn.onclick = function() {
         var text = studioChatInput.value.trim();
         if (!text) return;
         
-        var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-        currentChat.push({ sender: "أنت (المذيع)", text: text });
-        localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
-        
-        localStorage.setItem('chat_update_trigger', Date.now()); 
-        studioChatInput.value = "";
-        renderChat();
-    });
+        fetch(serverUrl + '/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sender: "أنت (المذيع)", text: text })
+        })
+        .then(function(res) {
+            if (res.ok) studioChatInput.value = "";
+        }).catch(function(e){});
+    };
 }
-
-window.addEventListener('storage', function(e) {
-    if (e.key === 'chat_update_trigger') renderChat();
-    if (e.key === 'like_update_trigger') renderLikes();
-});
-
-function renderChat() {
-    if (!studioChatMessages) return;
-    studioChatMessages.innerHTML = "";
-    var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-    currentChat.forEach(function(msg) {
-        var div = document.createElement('div');
-        div.style.marginBottom = "5px";
-        div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-        studioChatMessages.appendChild(div);
-    });
-    studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-}
-
-function renderLikes() {
-    var tbody = document.getElementById('likesTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-    var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
-
-
-var tracks = Object.keys(likes);
-if (tracks.length === 0) {
-tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>;
-return;
-}
-tracks.forEach(function(track) {
-var tr = document.createElement('tr');
-tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
-tbody.appendChild(tr);
-});
-}
-
-renderChat();
-renderLikes();
-
-
-
