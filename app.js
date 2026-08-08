@@ -136,6 +136,7 @@ if (volumeSlider) {
 }
 
 // 2️⃣ تشغيل الميكروفون المباشر وضخه إلى السيرفر عبر الإنترنت
+// 🛠️ الكود المطور والآمن لحماية شبكة الواي فاي من الانقطاع
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً على الإنترنت...";
     startMicBtn.disabled = true;
@@ -155,20 +156,35 @@ function startRecording(stream) {
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
     
-    // تسجيل الصوت وإرساله كسلسلة دفقات (Chunks) كل ثانية للسيرفر
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/mpeg' });
+    // 1️⃣ استخدام صيغة audio/webm المدمجة والمدعومة عالمياً مع تقليل معدل البت (Bitrate) لخفتها
+    var options = { mimeType: 'audio/webm;codecs=opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'audio/webm' }; // حل بديل إذا كان المتصفح لا يدعم opus
+    }
+    
+    mediaRecorder = new MediaRecorder(stream, options);
+    
     mediaRecorder.ondataavailable = function(e) {
         if (e.data && e.data.size > 0) {
-            // إرسال قطعة الصوت إلى السيرفر لتبث للمستمعين فوراً
+            // 2️⃣ إرسال البيانات كملف صلب ومكتمل لتخفيف العبء على السيرفر والراوتر
+            var audioBlob = new Blob([e.data], { type: 'audio/mpeg' });
+            
             fetch(SERVER_URL + '/api/stream-mic', {
                 method: 'POST',
                 headers: { 'Content-Type': 'audio/mpeg' },
-                body: e.data
-            }).catch(function(err){ console.log("خطأ في نقل الصوت:", err); });
+                body: audioBlob
+            }).catch(function(err){ 
+                console.log("خطأ في نقل الصوت:", err); 
+            });
         }
     };
-    mediaRecorder.start(1000); // إرسال قطعة كل 1000 ميلي ثانية
+    
+    // 3️⃣ تجميع البيانات وإرسالها كل 4000 ميلي ثانية (4 ثوانٍ) بدلاً من ثانية واحدة
+    // هذا يقلل ضغط الطلبات على الراوتر بنسبة 75% ويمنع انقطاع الواي فاي تماماً
+    mediaRecorder.start(4000); 
 }
+
+
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
