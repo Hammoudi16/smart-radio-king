@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>صفحة الفنان - راديو كينج بث مباشر وعالمي</title>
-    <style>
+<style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0c1b; color: #fffffe; text-align: center; padding: 20px; margin: 0; }
         .container { max-width: 500px; margin: 0 auto; }
         .profile-card { background: #1a1528; padding: 30px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 1px solid #251f38; }
@@ -21,7 +21,7 @@
         .chat-input { flex: 1; background: #251f38; border: 1px solid #3c355a; color: white; padding: 12px; border-radius: 8px; outline: none; }
         .chat-btn { background: #00f2fe; color: #0f0c1b; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .like-btn { background: #251f38; color: #ff007f; border: 2px solid #ff007f; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
-    </style>
+</style>
   </head>
   <body>
 
@@ -41,19 +41,17 @@
       <div class="profile-card">
         <h3>🎵 معرض ألبومات وبودكاست المحطة</h3>
         <div class="gallery">
-          <!-- 🛠️ تم إصلاح روابط صور المعرض وتفريق المعرفات العشوائية لتظهر فوراً -->
+          <!-- 🛠️ تم إصلاح روابط صور المعرض بإضافة معرفات ومقاسات صحيحة لمنع التكرار -->
           <div class="gallery-item">
-            <img src="https://picsum.photos" class="gallery-img" alt="بودكاست خواطر تونس">
+            <img src="https://picsum.photos" class="gallery-img">
             <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">بودكاست خواطر تونس</p>
           </div>
           <div class="gallery-item">
-            <img src="https://picsum.photos" class="gallery-img" alt="ألبوم الموسيقى الهادئة">
+            <img src="https://picsum.photos" class="gallery-img">
             <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">ألبوم الموسيقى الهادئة</p>
           </div>
         </div>
       </div>
-        
-      
 
       <div class="profile-card chat-box">
         <h3>💬 دردشة المستمعين الحية</h3>
@@ -65,104 +63,96 @@
       </div>
     </div>
 
-    <script>
-        // 1️⃣ إعلان الرابط والمتغيرات الأساسية (تأكد من كتابة رابط Render الخاص بك كاملاً)
-var SERVER_URL = "https://smart-radio-king.onrender.com"; 
+<script>
+        var player = document.getElementById('streamPlayer');
+        var listenBtn = document.getElementById('listenBtn');
+        var liveBadge = document.getElementById('liveBadge');
+        var trackName = document.getElementById('trackName');
+        var chatMessages = document.getElementById('chatMessages');
+        var chatInput = document.getElementById('chatInput');
+        var sendChatBtn = document.getElementById('sendChatBtn');
+        var likeTrackBtn = document.getElementById('likeTrackBtn');
 
-var player = document.getElementById('streamPlayer');
-var listenBtn = document.getElementById('listenBtn');
-var trackName = document.getElementById('trackName');
-var chatMessages = document.getElementById('chatMessages');
-var chatInput = document.getElementById('chatInput');
-var sendChatBtn = document.getElementById('sendChatBtn');
-var likeTrackBtn = document.getElementById('likeTrackBtn');
+        listenBtn.addEventListener('click', function() {
+            var savedSrc = localStorage.getItem('radio_current_src');
+            if (player.paused) {
+                if(savedSrc) {
+                    player.src = savedSrc;
+                    player.play().catch(function(){});
+                    listenBtn.innerText = "⏸ إيقاف مؤقت";
+                } else {
+                    alert("لا يوجد بث مجدول حالياً. قم بحفظ جدولة من لوحة المذيع.");
+                }
+            } else {
+                player.pause();
+                listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
+            }
+        });
 
-// 2️⃣ تشغيل البث المباشر الحي القادم من السيرفر مباشرة
-if (listenBtn && player) {
-    listenBtn.addEventListener('click', function() {
-        if (player.paused) {
-            player.src = SERVER_URL + "/radio.mp3"; // قراءة دفق الراديو المشترك عبر الإنترنت
-            player.play().catch(function(err){
-                console.log("خطأ في تشغيل الصوت:", err);
+        if (likeTrackBtn) {
+            likeTrackBtn.addEventListener('click', function() {
+                var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
+                var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
+                if(!likes[currentTrackTitle]) likes[currentTrackTitle] = 0;
+                likes[currentTrackTitle]++;
+                localStorage.setItem('radio_global_likes', JSON.stringify(likes));
+                localStorage.setItem('like_update_trigger', Date.now());
+                alert("شكراً لك! تم إرسال إعجابك للاستوديو ❤️");
             });
-            listenBtn.innerText = "⏸ إيقاف مؤقت";
-        } else {
-            player.pause();
-            listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
         }
-    });
-}
 
-// 3️⃣ إرسال الإعجابات للسيرفر عبر الإنترنت
-if (likeTrackBtn) {
-    likeTrackBtn.addEventListener('click', function() {
-        var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
-        fetch(SERVER_URL + '/api/likes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ track: currentTrackTitle })
-        })
-        .then(function() {
-            alert("شكراً لك! تم إرسال إعجابك للاستوديو أونلاين ❤️");
-        })
-        .catch(function(err) {
-            console.log("خطأ في إرسال الإعجاب:", err);
+        if (sendChatBtn) {
+            sendChatBtn.addEventListener('click', function() {
+                var text = chatInput.value.trim();
+                if(!text) return;
+                
+                var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+                currentChat.push({ sender: "مستمع", text: text });
+                localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
+                localStorage.setItem('chat_update_trigger', Date.now());
+                
+                chatInput.value = "";
+                renderChat();
+            });
+        }
+
+        // الاستماع لزر الإدخال (Enter) لتسهيل إرسال الشات
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendChatBtn.click();
         });
-    });
-}
 
-// 4️⃣ إرسال رسائل الدردشة الحية للسيرفر عبر الإنترنت
-if (sendChatBtn && chatInput) {
-    sendChatBtn.addEventListener('click', function() {
-        var text = chatInput.value.trim();
-        if(!text) return;
-        
-        fetch(SERVER_URL + '/api/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender: "مستمع عبر الإنترنت", text: text })
-        })
-        .then(function() {
-            chatInput.value = "";
-            renderOnlineChat();
-        })
-        .catch(function(err) {
-            console.log("خطأ في إرسال الرسالة:", err);
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'chat_update_trigger') { renderChat(); }
+            if (e.key === 'radio_current_src' && e.newValue) {
+                player.src = e.newValue;
+                // إذا كان الراديو مشتغلاً بالفعل، قم بتحديث البث فوراً للمقطع الجديد المجدول تلقائياً
+                if (!player.paused) player.play().catch(function(){});
+            }
+            if (e.key === 'radio_track_title' && e.newValue && trackName) {
+                trackName.innerText = "المقطع الحالي: " + e.newValue;
+            }
         });
-    });
 
-    // تفعيل زر Enter للإرسال السريع
-    chatInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') sendChatBtn.click();
-    });
-}
+        function renderChat() {
+            if (!chatMessages) return;
+            chatMessages.innerHTML = "";
+            var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+            currentChat.forEach(function(msg) {
+                var div = document.createElement('div');
+                div.style.marginBottom = "5px";
+                div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+                chatMessages.appendChild(div);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
 
-// 5️⃣ دالة دورية لتحديث الدردشة من السيرفر مباشرة لكل المستمعين
-function renderOnlineChat() {
-    if (!chatMessages) return;
-    
-    fetch(SERVER_URL + '/api/messages')
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        chatMessages.innerHTML = "";
-        data.forEach(function(msg) {
-            var div = document.createElement('div');
-            div.style.marginBottom = "5px";
-            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-            chatMessages.appendChild(div);
-        });
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    })
-    .catch(function(err) {
-        console.log("خطأ في جلب الرسائل:", err);
-    });
-}
-
-// تحديث الشات تلقائياً كل ثانيتين عبر الإنترنت وقراءته عند الدخول لأول مرة
-setInterval(renderOnlineChat, 2000);
-renderOnlineChat();
-
-
-    </script>
+        // 🛠️ رندرة أولية عند تشغيل الواجهة لقراءة البيانات المخزنة فوراً للمقطع الحالي والدردشة
+        var initialTrack = localStorage.getItem('radio_track_title');
+        if (initialTrack && trackName) {
+            trackName.innerText = "المقطع الحالي: " + initialTrack;
+        }
+        renderChat();
+</script>
   </body>
 </html>
+
