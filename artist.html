@@ -98,28 +98,50 @@
                 appendMessage("المذيع", cleanMsg);
             }
         });
+listenBtn.addEventListener('click', function() {
+    var streamUrl = "https://onrender.com"; 
+    
+    if (player.paused) {
+        // Changement visuel pour indiquer au visiteur de patienter
+        listenBtn.innerText = "⏳ جاري الاتصال بالسيرفر...";
+        listenBtn.disabled = true; // Désactive temporairement le bouton
+        
+        player.src = streamUrl;
+        player.play()
+            .then(function() {
+                // Connexion réussie, le serveur est actif
+                listenBtn.innerText = "⏸ إيقاف مؤقت";
+                listenBtn.disabled = false;
+                if (liveBadge) {
+                    liveBadge.innerText = "🔴 بث مباشر شغال";
+                    liveBadge.style.background = "#ff007f";
+                }
+            })
+            .catch(function(err) { 
+                console.log("Démarrage du serveur en cours...", err);
+                // Au lieu d'une alerte, on réessaie automatiquement après 3 secondes
+                setTimeout(function() {
+                    player.play()
+                        .then(function() {
+                            listenBtn.innerText = "⏸ إيقاف مؤقت";
+                            listenBtn.disabled = false;
+                        })
+                        .catch(function() {
+                            // Si vraiment après l'attente ça échoue, on réactive le bouton
+                            listenBtn.innerText = "▶ استماع إلى الراديو";
+                            listenBtn.disabled = false;
+                            alert("السيرفر يستيقظ حالياً، يرجى المحاولة مرة أخرى بعد لحظات.");
+                        });
+                }, 4000);
+            });
+    } else {
+        player.pause();
+        player.src = ""; 
+        listenBtn.innerText = "▶ استماع إلى الراديو";
+    }
+});
 
-        listenBtn.addEventListener('click', function() {
-            var streamUrl = "https://smart-radio-king.onrender.com/radio.mp3"; 
-            if (player.paused) {
-                player.src = streamUrl;
-                player.play()
-                    .then(function() {
-                        listenBtn.innerText = "⏸ إيقاف مؤقت";
-                        if (liveBadge) {
-                            liveBadge.innerText = "🔴 بث مباشر شغال";
-                            liveBadge.style.background = "#ff007f";
-                        }
-                    })
-                    .catch(function(err) { 
-                        alert("تعذر الاتصال بالبث المباشر. يرجى التأكد من تشغيل السيرفر بالكامل.");
-                    });
-            } else {
-                player.pause();
-                player.src = ""; 
-                listenBtn.innerText = "▶ استماع إلى الراديو";
-            }
-        });
+        
 
         sendChatBtn.addEventListener('click', function() {
             var text = chatInput.value.trim();
