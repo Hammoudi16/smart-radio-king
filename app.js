@@ -1,12 +1,11 @@
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
-var archiveRecorder = null; // مسجل مخصص لتجميع حزمة الأرشيف الكاملة
+var archiveRecorder = null; // مسجل مخصص لتجميع حلقة الأرشيف الكاملة
 var archiveChunks = [];
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
-var likesData = {};
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
@@ -20,6 +19,9 @@ var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
+var serverUrl = "https://onrender.com";
+
+// 1️⃣ إعداد وإدارة قاعدة البيانات المحلية IndexedDB
 var request = indexedDB.open("RadioKingDB", 1);
 request.onupgradeneeded = function(e) {
     var database = e.target.result;
@@ -33,10 +35,12 @@ request.onsuccess = function(e) {
     loadSavedTracks();
 };
 
+// 2️⃣ ميقاتي الساعة وفحص الجدولة الأسبوعية التلقائية
 var lastTriggeredMinute = "";
 setInterval(function() {
     var now = new Date();
     if (clockEl) clockEl.innerText = now.toLocaleTimeString();
+
     var currentDay = now.getDay();
     var hours = now.getHours().toString().padStart(2, '0');
     var minutes = now.getMinutes().toString().padStart(2, '0');
@@ -132,6 +136,7 @@ if (volumeSlider) {
     });
 }
 
+// 3️⃣ تفعيل وبث الميكروفون المباشر وتمريره للسيرفر مع الحفظ للأرشيف
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 البث المباشر للميكروفون نشط حالياً...";
     startMicBtn.disabled = true;
@@ -151,20 +156,20 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
-    // 1. المسجل الأول: للبث الحي المباشر (مقطع كل 250ms)
+    // المسجل الأول: للبث الحي المباشر (مقطع صوتي خفيف كل 250ms)
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = function(e) {
         if (e.data.size > 0) {
-            fetch('https://onrender.com', {
+            fetch(serverUrl + '/api/stream-mic', {
                 method: 'POST',
                 headers: { 'Content-Type': 'audio/mpeg' },
                 body: e.data
-            }).catch(function(err) { console.log(err); });
+            }).catch(function(err) { console.log("خطأ في إرسال دفقات البث المباشر:", err); });
         }
     };
     mediaRecorder.start(250);
 
-    // 2. المسجل الثاني: لتجميع الحلقة كاملة للأرشيف
+    // المسجل الثاني: لتجميع الحلقة كاملة وإرسالها للأرشيف عند الضغط على إيقاف
     archiveChunks = [];
     archiveRecorder = new MediaRecorder(stream);
     archiveRecorder.ondataavailable = function(e) {
@@ -174,13 +179,12 @@ function startRecording(stream) {
         var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
         if (statusEl) statusEl.innerText = "⏳ جاري نقل الحلقة للأرشيف...";
         
-        // شحن الملف الكامل للسيرفر لحفظه
-        fetch('https://onrender.com', {
+        fetch(serverUrl + '/api/archive', {
             method: 'POST',
             headers: { 'Content-Type': 'audio/mpeg' },
             body: completeBlob
         }).then(function() {
-            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة)";
+            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
         }).catch(function() {
             if (statusEl) statusEl.innerText = "إستعداد (فشلت الأرشفة)";
         });
@@ -203,7 +207,7 @@ if (stopMicBtn) {
         if (audioContext) audioContext.close();
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
-        fetch('https://onrender.com', { method: 'POST' });
+        fetch(serverUrl + '/api/stop-mic', { method: 'POST' });
     });
 }
 
@@ -213,46 +217,56 @@ if (echoSlider) {
     });
 }
 
+// 4️⃣ المزامنة الحية عبر الإنترنت (CORS الحل الشامل لدردشة المستمعين ونظام القلوب)
+setInterval(function() {
+    // جلب رسائل الشات القادمة من صفحة المستمعين على جيتهاب
+    fetch(serverUrl + '/api/messages')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (studioChatMessages) {
+                studioChatMessages.innerHTML = "";
+                data.forEach(function(msg) {
+                    var div = document.createElement('div');
+                    div.style.marginBottom = "5px";
+                    div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+                    studioChatMessages.appendChild(div);
+                });
+                studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+            }
+        }).catch(function(e){});
+
+    // جلب إحصائيات الإعجابات وتحديث جدول لوحة التحكم تلقائياً
+    fetch(serverUrl + '/api/likes')
+        .then(function(res) { return res.json(); })
+        .then(function(likes) {
+            var tbody = document.getElementById('likesTableBody');
+            if (tbody) {
+                tbody.innerHTML = "";
+                var tracks = Object.keys(likes);
+                if (tracks.length === 0) {
+                    tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
+                    return;
+                }
+                tracks.forEach(function(track) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+        }).catch(function(e){});
+}, 3000);
+// رد المذيع على المستمعين وإرسال النص للسيرفر
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.addEventListener('click', function() {
-        var text = studioChatInput.value.trim();
-        if (!text) return;
-        appendStudioMessage("أنت (المذيع)", text);
-        localStorage.setItem('chat_sync_msg', text + "||" + Date.now());
-        studioChatInput.value = "";
-    });
-}
-
-window.addEventListener('storage', function(e) {
-    if (e.key === 'chat_listener_msg' && e.newValue) {
-        appendStudioMessage("مستمع", e.newValue.split('||'));
-    }
-    if (e.key === 'track_liked_signal' && e.newValue) {
-        var trackName = e.newValue.split('||');
-        if (!likesData[trackName]) likesData[trackName] = 0;
-        likesData[trackName]++;
-        updateLikesTable();
-    }
+sendStudioChatBtn.addEventListener('click', function() {
+var text = studioChatInput.value.trim();
+if (!text) return;
+fetch(serverUrl + '/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ sender: "أنت (المذيع)", text: text })
+}).then(function() { studioChatInput.value = ""; });
 });
-
-function updateLikesTable() {
-    var tbody = document.getElementById('likesTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-    var tracks = Object.keys(likesData);
-    tracks.sort(function(a, b) { return likesData[b] - likesData[a]; });
-    for (var i = 0; i < tracks.length; i++) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = `<td>${tracks[i]}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likesData[tracks[i]]} ❤️</td>`;
-        tbody.appendChild(tr);
-    }
 }
 
-function appendStudioMessage(sender, msg) {
-    if (!studioChatMessages) return;
-    var div = document.createElement('div');
-    div.innerHTML = `<b>${sender}:</b> ` + document.createTextNode(msg).textContent;
-    div.style.marginBottom = "5px";
-    studioChatMessages.appendChild(div);
-    studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-}
+
+
