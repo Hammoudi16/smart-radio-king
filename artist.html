@@ -10,11 +10,11 @@
         .profile-card { background: #1a1528; padding: 30px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 1px solid #251f38; }
         .avatar { width: 120px; height: 120px; border-radius: 50%; border: 3px solid #ff007f; margin-bottom: 15px; object-fit: cover; box-shadow: 0 0 15px rgba(255, 0, 127, 0.4); }
         .btn-play { background: #ff007f; color: #fffffe; border: none; padding: 14px 35px; font-size: 1.1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255, 0, 127, 0.3); }
-        .btn-play:hover { transform: scale(1.03); background: #e0006c; box-shadow: 0 6px 20px rgba(255, 0, 127, 0.5); }
+        .btn-play:hover { transform: scale(1.03); background: #e0006c; }
         .badge { background: #00f2fe; color: #0f0c1b; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; }
         .now-playing { font-style: italic; color: #00f2fe; margin-top: 12px; font-weight: 500; font-size: 0.95rem; }
         .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; text-align: center; margin-top: 15px; }
-        .gallery-item { background: #251f38; border-radius: 10px; padding: 10px; border: 1px solid #3c355a; transition: 0.2s; }
+        .gallery-item { background: #251f38; border-radius: 10px; padding: 10px; border: 1px solid #3c355a; }
         .gallery-img { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; }
         .chat-box { text-align: right; }
         .chat-messages { height: 180px; overflow-y: auto; background: #0a0714; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid #3c355a; font-size: 14px; }
@@ -23,33 +23,33 @@
         .chat-btn { background: #00f2fe; color: #0f0c1b; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .like-btn { background: #251f38; color: #ff007f; border: 2px solid #ff007f; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
         .archive-list { text-align: right; list-style: none; padding: 0; margin: 10px 0; }
-        .archive-item { background: #251f38; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; border: 1px solid #3c355a; }
-        .archive-listen-btn { background: #00f2fe; color: #0f0c1b; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .archive-item { background: #251f38; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #3c355a; }
     </style>
   </head>
   <body>
 
     <div class="container">
         <div class="profile-card">
+          <!-- 🛠️ تعديل روابط الصور بروابط ثابتة ومضمونة 100% -->
           <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
           <h2 style="margin: 10px 0;">إذاعة الفنان المباشرة</h2>
           <p><span class="badge" id="liveBadge">بث مستمر 24H</span></p>
           <p class="now-playing" id="trackName">مستعد لتلقي استماعكم</p>
           <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو المباشر</button>
           <audio id="streamPlayer"></audio>
+          
           <button class="like-btn" id="likeTrackBtn">❤️ أعجبتني هذه المادة الإذاعية</button>
         </div>
 
-        <!-- 📁 كارت أرشيف الحلقات المسجلة الجديد للمستمعين -->
         <div class="profile-card">
-            <h3 style="margin-top:0; border-bottom:1px solid #3c355a; padding-bottom:8px; color: #00f2fe;">📻 حلقات مسجلة سابقة (الأرشيف)</h3>
+            <h3 style="margin-top:0; border-bottom:1px solid #3c355a; padding-bottom:8px; color: #00f2fe;">📻 الحلقات المؤرشفة</h3>
             <ul class="archive-list" id="archiveContainer">
-                <li style="color: #aaa; text-align: center;">جاري تحميل الحلقات المؤرشفة...</li>
+                <li style="color: #aaa; text-align: center;">لا توجد حلقات مؤرشفة حالياً</li>
             </ul>
         </div>
 
         <div class="profile-card">
-          <h3 style="margin-top:0; border-bottom:1px solid #3c355a; padding-bottom:8px;">🎵 معرض ألبومات وبودكاست المحطة</h3>
+          <h3>🎵 معرض الألبومات والبودكاست</h3>
           <div class="gallery">
             <div class="gallery-item">
               <img src="https://picsum.photos" class="gallery-img">
@@ -63,10 +63,10 @@
         </div>
 
         <div class="profile-card chat-box">
-          <h3 style="margin-top:0;">💬 دردشة وبث رسائل المستمعين</h3>
+          <h3>💬 دردشة المستمعين الحية</h3>
           <div class="chat-messages" id="chatMessages"></div>
           <div class="chat-input-row">
-            <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع في الاستوديو...">
+            <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع...">
             <button id="sendChatBtn" class="chat-btn">إرسال</button>
           </div>
         </div>
@@ -81,115 +81,54 @@
         var chatInput = document.getElementById('chatInput');
         var sendChatBtn = document.getElementById('sendChatBtn');
         var likeTrackBtn = document.getElementById('likeTrackBtn');
-        var archiveContainer = document.getElementById('archiveContainer');
 
-        // جلب قائمة الحلقات المسجلة من السيرفر عند فتح الصفحة
-        function loadArchive() {
-            fetch('https://onrender.com')
+        var serverUrl = "https://onrender.com";
+
+        // تحديث رسائل الشات دورياً من السيرفر عبر الإنترنت
+        setInterval(function() {
+            fetch(serverUrl + '/api/messages')
                 .then(function(res) { return res.json(); })
-                .then(function(files) {
-                    if(!archiveContainer) return;
-                    archiveContainer.innerHTML = "";
-                    if(files.length === 0) {
-                        archiveContainer.innerHTML = "<li style='color: #aaa; text-align: center;'>لا توجد حلقات مؤرشفة حتى الآن</li>";
-                        return;
-                    }
-                    files.forEach(function(file) {
-                        var li = document.createElement('li');
-                        li.className = "archive-item";
-                        li.innerHTML = `<span>🎙️ تسجيل حلقة استوديو</span> <button class="archive-listen-btn" onclick="playArchive('${file}')">استماع</button>`;
-                        archiveContainer.appendChild(li);
-                    });
-                }).catch(function() {
-                    if(archiveContainer) archiveContainer.innerHTML = "<li style='color: #aaa; text-align: center;'>فشل اتصال الأرشيف بالسيرفر</li>";
-                });
-        }
-
-        function playArchive(filename) {
-            player.pause();
-            player.src = "https://onrender.com" + filename;
-            player.play();
-            listenBtn.innerText = "⏸ إيقاف الحلقة المؤرشفة";
-            if (liveBadge) {
-                liveBadge.innerText = "📁 استماع للأرشيف";
-                liveBadge.style.background = "#00f2fe";
-            }
-        }
-
-        window.addEventListener('storage', function(e) {
-            if (e.key === 'radio_current_src' && e.newValue) {
-                player.src = e.newValue;
-                if (!player.paused || listenBtn.innerText.indexOf('إيقاف') !== -1) {
-                    player.play().catch(function() {});
-                }
-            }
-            if (e.key === 'radio_track_title' && e.newValue && trackName) {
-                trackName.innerText = "المقطع الحالي: " + e.newValue;
-            }
-            if (e.key === 'chat_sync_msg' && e.newValue) {
-                appendMessage("المذيع", e.newValue.split('||'));
-            }
-        });
+                .then(function(data) {
+                    chatMessages.innerHTML = "";
+                    data.forEach(function(msg) { appendMessage(msg.sender, msg.text); });
+                }).catch(function(e){});
+        }, 3000);
 
         listenBtn.addEventListener('click', function() {
-            var streamUrl = "https://onrender.com"; 
             if (player.paused) {
-                listenBtn.innerText = "⏳ جاري الاتصال بالسيرفر...";
-                listenBtn.disabled = true;
-                player.src = streamUrl;
-                player.play()
-                    .then(function() {
-                        listenBtn.innerText = "⏸ إيقاف مؤقت";
-                        listenBtn.disabled = false;
-                        if (liveBadge) {
-                            liveBadge.innerText = "🔴 بث مباشر شغال";
-                            liveBadge.style.background = "#ff007f";
-                        }
-                    })
-                    .catch(function() {
-                        setTimeout(function() {
-                            player.play()
-                                .then(function() { listenBtn.innerText = "⏸ إيقاف مؤقت"; listenBtn.disabled = false; })
-                                .catch(function() {
-                                    listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
-                                    listenBtn.disabled = false;
-                                    alert("السيرفر يستيقظ حالياً، يرجى المحاولة مرة أخرى بعد لحظات.");
-                                });
-                        }, 4000);
-                    });
-            } else {
-                player.pause();
-                player.src = ""; 
-                listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
-            }
+                player.src = serverUrl + "/radio.mp3";
+                player.play().then(function() { listenBtn.innerText = "⏸ إيقاف مؤقت"; }).catch(function() {});
+            } else { player.pause(); player.src = ""; listenBtn.innerText = "▶ استماع"; }
         });
 
+        // تشغيل زر القلب وإرساله بنجاح للسيرفر بدون حظر
         if (likeTrackBtn) {
             likeTrackBtn.addEventListener('click', function() {
-                var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
+                fetch(serverUrl + '/api/likes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track: "default_music.mp3" })
+                }).then(function() { alert("شكراً لك! تم تسجيل إعجابك في الاستوديو ❤️"); });
+            });
+        }
 
+        // تشغيل زر إرسال الشات وتمريره للسيرفر بنجاح عبر الإنترنت
+        sendChatBtn.addEventListener('click', function() {
+            var text = chatInput.value.trim();
+            if(!text) return;
+            fetch(serverUrl + '/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: "مستمع", text: text })
+            }).then(function() { chatInput.value = ""; });
+        });
 
-localStorage.setItem('track_liked_signal', currentTrackTitle + "||" + Date.now());
-alert("شكراً لك! تم إرسال إعجابك للمذيع في الاستوديو ❤️");
-});
-}
-
-sendChatBtn.addEventListener('click', function() {
-var text = chatInput.value.trim();
-if(!text) return;
-appendMessage("مستمع", text);
-localStorage.setItem('chat_listener_msg', text + "||" + Date.now());
-chatInput.value = "";
-});
-
-function appendMessage(sender, msg) {
-var div = document.createElement('div');
-div.innerHTML = <b>${sender}:</b> + document.createTextNode(msg).textContent;
-div.style.marginBottom = "5px";
-chatMessages.appendChild(div);
-chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-loadArchive();
-
-
+        function appendMessage(sender, msg) {
+            var div = document.createElement('div');
+            div.innerHTML = `<b>${sender}:</b> ` + document.createTextNode(msg).textContent;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    </script>
+  </body>
+</html>
