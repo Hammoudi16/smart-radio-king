@@ -64,29 +64,34 @@
     </div>
 
     <script>
-        var SERVER_URL = "https://onrender.com";
+        // 1️⃣ إعلان الرابط والمتغيرات الأساسية (تأكد من كتابة رابط Render الخاص بك كاملاً)
+var SERVER_URL = "https://smart-radio-king.onrender.com"; 
+
 var player = document.getElementById('streamPlayer');
 var listenBtn = document.getElementById('listenBtn');
-     var liveBadge = document.getElementById('liveBadge'); 
 var trackName = document.getElementById('trackName');
 var chatMessages = document.getElementById('chatMessages');
-        var chatInput = document.getElementById('chatInput');
-        var sendChatBtn = document.getElementById('sendChatBtn');
-        var likeTrackBtn = document.getElementById('likeTrackBtn');
+var chatInput = document.getElementById('chatInput');
+var sendChatBtn = document.getElementById('sendChatBtn');
+var likeTrackBtn = document.getElementById('likeTrackBtn');
 
-// تشغيل البث المباشر الحي القادم من السيرفر مباشرة
-listenBtn.addEventListener('click', function() {
-    if (player.paused) {
-        player.src = SERVER_URL + "/radio.mp3"; // قراءة دفق الراديو المشترك عبر الإنترنت
-        player.play().catch(function(){});
-        listenBtn.innerText = "⏸ إيقاف مؤقت";
-    } else {
-        player.pause();
-        listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
-    }
-});
+// 2️⃣ تشغيل البث المباشر الحي القادم من السيرفر مباشرة
+if (listenBtn && player) {
+    listenBtn.addEventListener('click', function() {
+        if (player.paused) {
+            player.src = SERVER_URL + "/radio.mp3"; // قراءة دفق الراديو المشترك عبر الإنترنت
+            player.play().catch(function(err){
+                console.log("خطأ في تشغيل الصوت:", err);
+            });
+            listenBtn.innerText = "⏸ إيقاف مؤقت";
+        } else {
+            player.pause();
+            listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
+        }
+    });
+}
 
-// إرسال الإعجابات للسيرفر عبر الإنترنت
+// 3️⃣ إرسال الإعجابات للسيرفر عبر الإنترنت
 if (likeTrackBtn) {
     likeTrackBtn.addEventListener('click', function() {
         var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
@@ -94,14 +99,18 @@ if (likeTrackBtn) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ track: currentTrackTitle })
-        }).then(function() {
+        })
+        .then(function() {
             alert("شكراً لك! تم إرسال إعجابك للاستوديو أونلاين ❤️");
+        })
+        .catch(function(err) {
+            console.log("خطأ في إرسال الإعجاب:", err);
         });
     });
 }
 
-// إرسال رسائل الدردشة الحية للسيرفر عبر الإنترنت
-if (sendChatBtn) {
+// 4️⃣ إرسال رسائل الدردشة الحية للسيرفر عبر الإنترنت
+if (sendChatBtn && chatInput) {
     sendChatBtn.addEventListener('click', function() {
         var text = chatInput.value.trim();
         if(!text) return;
@@ -109,35 +118,48 @@ if (sendChatBtn) {
         fetch(SERVER_URL + '/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender: "مستمع", text: text })
-        }).then(function() {
+            body: JSON.stringify({ sender: "مستمع عبر الإنترنت", text: text })
+        })
+        .then(function() {
             chatInput.value = "";
             renderOnlineChat();
+        })
+        .catch(function(err) {
+            console.log("خطأ في إرسال الرسالة:", err);
         });
+    });
+
+    // تفعيل زر Enter للإرسال السريع
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendChatBtn.click();
     });
 }
 
-// دالة دورية لتحديث الدردشة من السيرفر مباشرة لكل المستمعين
+// 5️⃣ دالة دورية لتحديث الدردشة من السيرفر مباشرة لكل المستمعين
 function renderOnlineChat() {
+    if (!chatMessages) return;
+    
     fetch(SERVER_URL + '/api/messages')
     .then(function(res) { return res.json(); })
     .then(function(data) {
-        if (!chatMessages) return;
         chatMessages.innerHTML = "";
         data.forEach(function(msg) {
             var div = document.createElement('div');
-            div.style.removeProperty('margin-bottom');
             div.style.marginBottom = "5px";
             div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
             chatMessages.appendChild(div);
         });
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    })
+    .catch(function(err) {
+        console.log("خطأ في جلب الرسائل:", err);
     });
 }
 
-// تحديث الشات تلقائياً كل ثانيتين عبر الإنترنت
+// تحديث الشات تلقائياً كل ثانيتين عبر الإنترنت وقراءته عند الدخول لأول مرة
 setInterval(renderOnlineChat, 2000);
 renderOnlineChat();
+
 
     </script>
   </body>
