@@ -9,8 +9,7 @@ var feedbackNode = null;
 var db = null;
 
 // الرابط المشفر والآمن الخاص بسيرفرك المرفوع على Render
-var SERVER_URL = "https://onrender.com"; 
-
+var SERVER_URL = "https://onrender.com";
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
 var statusEl = document.getElementById('currentStatus');
