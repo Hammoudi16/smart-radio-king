@@ -5,60 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>صفحة الفنان - البث والدردشة العالمي</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0f0c1b; color: #fff; text-align: center; padding: 20px; }
-        .profile-card { background: #1a1528; padding: 25px; border-radius: 15px; max-width: 450px; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .avatar { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #ff007f; margin-bottom: 15px; }
-        .btn-play { background: #ff007f; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; transition: 0.3s; }
-        .btn-play:hover { transform: scale(1.05); }
-        .badge { background: #ff007f; color: #fff; padding: 5px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; }
-        .now-playing { font-style: italic; color: #00f2fe; margin-top: 10px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0c1b; color: #fff; text-align: center; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .profile-card { background: #1a1528; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #251f38; }
+        .avatar { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #ff007f; margin-bottom: 15px; object-fit: cover; }
+        .btn-play { background: #ff007f; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .btn-play:hover { transform: scale(1.05); background: #e0006c; }
+        .badge { background: #00f2fe; color: #000; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .now-playing { font-style: italic; color: #00f2fe; margin-top: 10px; font-weight: 500; }
         
-        .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; margin-top: 15px; }
+        .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; text-align: center; margin-top: 15px; }
         .gallery-item { background: #251f38; border-radius: 8px; padding: 10px; border: 1px solid #3c355a; }
-        .gallery-img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; }
+        .gallery-img { width: 100%; height: 110px; object-fit: cover; border-radius: 6px; }
         
         .chat-box { text-align: right; }
-        .chat-messages { height: 150px; overflow-y: auto; background: #0a0714; border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #3c355a; font-size: 14px; }
-        .chat-input-row { display: flex; gap: 5px; }
-        .chat-input { flex: 1; background: #251f38; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; }
-        .chat-btn { background: #00f2fe; color: black; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .chat-messages { height: 180px; overflow-y: auto; background: #0a0714; border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #3c355a; font-size: 14px; }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input { flex: 1; background: #251f38; border: 1px solid #3c355a; color: white; padding: 10px; border-radius: 5px; outline: none; }
+        .chat-input:focus { border-color: #00f2fe; }
+        .chat-btn { background: #00f2fe; color: black; border: none; padding: 8px 18px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     </style>
   </head>
   <body>
 
-    <!-- كارت البث الرئيسي -->
-    <div class="profile-card">
-      <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
-      <h2>إذاعة الفنان المباشرة</h2>
-      <p><span class="badge" id="liveBadge">🔴 بث مباشر شغال</span></p>
-      <p class="now-playing" id="trackName">راديو كينج بث عالمي مستمر</p>
-      <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو</button>
-      <audio id="streamPlayer"></audio>
-    </div>
-
-    <!-- معرض صور الألبومات والبودكاست المرئي -->
-    <div class="profile-card">
-      <h3>🎵 معرض ألبومات الفنان المرئي</h3>
-      <div class="gallery">
-        <div class="gallery-item">
-          <img src="https://picsum.photos" class="gallery-img">
-          <p style="font-size:13px; margin:5px 0 0 0;">بودكاست خواطر</p>
+    <div class="container">
+        <div class="profile-card">
+          <!-- تعديل روابط الصور لمنع الصور المكسورة وضبط الأحجام بدقة -->
+          <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
+          <h2>إذاعة الفنان المباشرة</h2>
+          <p><span class="badge" id="liveBadge">في الانتظار</span></p>
+          <p class="now-playing" id="trackName">راديو كينج بث عالمي مستمر</p>
+          <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو</button>
+          <audio id="streamPlayer"></audio>
         </div>
-        <div class="gallery-item">
-          <img src="https://picsum.photos" class="gallery-img">
-          <p style="font-size:13px; margin:5px 0 0 0;">ألبوم الموسيقى الهادئة</p>
-        </div>
-      </div>
-    </div>
 
-    <!-- مساحة الدردشة الحية وتلقي الرسائل -->
-    <div class="profile-card chat-box">
-      <h3>💬 دردشة المستمعين الحية</h3>
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
-        <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
-        <button id="sendChatBtn" class="chat-btn">إرسال</button>
-      </div>
+        <div class="profile-card">
+          <h3>🎵 معرض ألبومات الفنان المرئي</h3>
+          <div class="gallery">
+            <div class="gallery-item">
+              <img src="https://picsum.photos" class="gallery-img">
+              <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">بودكاست خواطر</p>
+            </div>
+            <div class="gallery-item">
+              <img src="https://picsum.photos" class="gallery-img">
+              <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">ألبوم الموسيقى الهادئة</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-card chat-box">
+          <h3>💬 دردشة المستمعين الحية</h3>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
+            <button id="sendChatBtn" class="chat-btn">إرسال</button>
+          </div>
+        </div>
     </div>
 
     <script>
@@ -70,35 +72,55 @@
         var chatInput = document.getElementById('chatInput');
         var sendChatBtn = document.getElementById('sendChatBtn');
 
-        // رابط سيرفر الصوت الخاص بك على منصة Render
-        var RENDER_STREAM_URL = "https://onrender.com";
-
-        // استقبال الرسائل القادمة من المذيع وتحديث الشات
         window.addEventListener('storage', function(e) {
+            if (e.key === 'radio_current_src' && e.newValue) {
+                player.src = e.newValue;
+                if (!player.paused || listenBtn.innerText.indexOf('إيقاف') !== -1) {
+                    player.play().catch(function(err) { console.log(err); });
+                }
+                if (liveBadge) {
+                    liveBadge.innerText = "🔴 بث مباشر شغال";
+                    liveBadge.style.background = "#ff007f";
+                }
+            }
+            if (e.key === 'radio_track_title' && e.newValue && trackName) {
+                trackName.innerText = "المقطع الحالي: " + e.newValue;
+            }
+            if (e.key === 'radio_status' && e.newValue === 'Ready') {
+                if (liveBadge) {
+                    liveBadge.innerText = "في الانتظار";
+                    liveBadge.style.background = "#00f2fe";
+                }
+                player.pause();
+            }
             if (e.key === 'chat_sync_msg' && e.newValue) {
-                var msgData = e.newValue.split('||')[0];
-                appendMessage("المذيع", msgData);
+                var cleanMsg = e.newValue.split('||')[0];
+                appendMessage("المذيع", cleanMsg);
             }
         });
 
-        // تشغيل وإيقاف البث الحي القادم من سيرفر Render
         listenBtn.addEventListener('click', function() {
+            var streamUrl = "https://smart-radio-king.onrender.com/radio.mp3"; 
             if (player.paused) {
-                player.src = RENDER_STREAM_URL;
-                player.play().then(function() {
-                    listenBtn.innerText = "⏸ إيقاف مؤقت";
-                }).catch(function(err) {
-                    alert("تعذر الاتصال بالبث المباشر. يرجى التأكد من تشغيل السيرفر بالكامل.");
-                    console.log("Error playing stream:", err);
-                });
+                player.src = streamUrl;
+                player.play()
+                    .then(function() {
+                        listenBtn.innerText = "⏸ إيقاف مؤقت";
+                        if (liveBadge) {
+                            liveBadge.innerText = "🔴 بث مباشر شغال";
+                            liveBadge.style.background = "#ff007f";
+                        }
+                    })
+                    .catch(function(err) { 
+                        alert("تعذر الاتصال بالبث المباشر. يرجى التأكد من تشغيل السيرفر بالكامل.");
+                    });
             } else {
                 player.pause();
-                player.src = ""; // تفريغ الذاكرة من التدفق المستمر عند الإيقاف
+                player.src = ""; 
                 listenBtn.innerText = "▶ استماع إلى الراديو";
             }
         });
 
-        // إرسال رسائل المستمع إلى المذيع
         sendChatBtn.addEventListener('click', function() {
             var text = chatInput.value.trim();
             if(!text) return;
@@ -109,9 +131,11 @@
 
         function appendMessage(sender, msg) {
             var div = document.createElement('div');
-            div.innerHTML = "<b>" + sender + ":</b> " + msg;
+            var b = document.createElement('b');
+            b.textContent = sender + ": ";
+            div.appendChild(b);
+            div.appendChild(document.createTextNode(msg));
             div.style.marginBottom = "5px";
-            if (sender === "المذيع") div.style.color = "#00f2fe";
             chatMessages.appendChild(div);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
