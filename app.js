@@ -5,7 +5,7 @@ var delayNode = null;
 var feedbackNode = null;
 
 // عنوان السيرفر الرئيسي (تغييره إذا كان مرفوعاً أونلاين مثل Heroku أو VPS)
-var SERVER_URL = "https://onrender.com"; 
+var SERVER_URL = "https://smart-radio-king.onrender.com"; 
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
