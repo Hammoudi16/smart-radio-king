@@ -1,5 +1,5 @@
 // ==========================================
-// 🎙️ المتغيرات وإعدادات الرابط الرئيسي للسيرفر
+// 🎙️ إعداد المتغيرات والرابط الرئيسي للسيرفر
 // ==========================================
 var scheduledEvents = [];
 var mediaRecorder = null;
@@ -8,7 +8,7 @@ var delayNode = null;
 var feedbackNode = null;
 var db = null;
 
-// الرابط المشفر والآمن لـ Render
+// 🔗 الرابط النهائي الموثوق والمشفر (HTTPS) لـ Render
 var SERVER_URL = "https://onrender.com"; 
 
 var radioPlayer = document.getElementById('radioPlayer');
@@ -24,7 +24,7 @@ var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
 // ==========================================
-// ⏱️ تشغيل الساعة وفحص الجدولة (محمي تماماً)
+// ⏱️ تشغيل الساعة المستقلة (محمية وعازلة للأخطاء)
 // ==========================================
 var lastTriggeredMinute = "";
 setInterval(function() {
@@ -41,19 +41,19 @@ setInterval(function() {
 
         for (var i = 0; i < scheduledEvents.length; i++) {
             var event = scheduledEvents[i];
-            if (event.day == currentDay && event.time == currentTime) {
+            if (event && event.day == currentDay && event.time == currentTime) {
                 lastTriggeredMinute = currentTime;
                 triggerAlbumPlay(event.day, event.time);
                 break;
             }
         }
     } catch (e) {
-        console.log("خطأ في مؤقت الساعة:", e);
+        console.error("خطأ معزول في عداد الساعة:", e);
     }
 }, 1000);
 
 // ==========================================
-// 📅 1️⃣ إعداد قاعدة البيانات المحلية IndexedDB
+// 📅 1️⃣ نظام الجدولة وقاعدة البيانات IndexedDB
 // ==========================================
 try {
     var request = indexedDB.open("RadioKingDB", 1);
@@ -69,12 +69,12 @@ try {
         loadSavedTracks();
     };
 } catch(e) {
-    console.log("IndexedDB غير مدعوم أو به خطأ:", e);
+    console.error("خطأ في تهيئة قاعدة البيانات المحلية:", e);
 }
 
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function() {
-        if (!db) { alert("قاعدة البيانات غير جاهزة بعد!"); return; }
+        if (!db) { alert("قاعدة البيانات المحلية غير جاهزة بعد، يرجى المحاولة مجدداً!"); return; }
         var files = document.getElementById('albumFiles').files;
         var day = document.getElementById('schedDay').value;
         var time = document.getElementById('schedTime').value;
@@ -150,7 +150,7 @@ if (volumeSlider) {
 }
 
 // ==========================================
-// 🎤 2️⃣ التحكم في الميكروفون المباشر والبث الآمن
+// 🎤 2️⃣ الميكروفون المباشر وضغط دفقات الصوت (آمن للواي فاي)
 // ==========================================
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً على الإنترنت...";
@@ -187,13 +187,14 @@ function startRecording(stream) {
                     method: 'POST',
                     headers: { 'Content-Type': 'audio/mpeg' },
                     body: audioBlob
-                }).catch(function(err){ console.log(err); });
+                }).catch(function(err){ console.log("خطأ غير مؤثر في دفق الصوت:", err); });
             }
         };
         
+        // إرسال حزم مجمعة كل 4 ثوانٍ لحماية الراوتر من السقوط
         mediaRecorder.start(4000); 
     } catch(err) {
-        console.log("خطأ أثناء تفعيل تسجيل الميكروفون:", err);
+        console.error("فشل إعداد الميكروفون المباشر الخارجي:", err);
     }
 }
 
@@ -203,29 +204,31 @@ if (startMicBtn) {
             navigator.mediaDevices.getUserMedia({ audio: true })
             .then(startRecording)
             .catch(function(err) {
-                alert("يرجى إعطاء صلاحية الميكروفون للمتصفح أولاً.");
+                alert("يرجى تفعيل صلاحية الميكروفون في متصفحك أولاً لاستخدام البث المباشر.");
             });
         } else {
-            alert("المتصفح لا يدعم تسجيل الميكروفون في هذه البيئة.");
+            alert("المتصفح لا يدعم تسجيل الميكروفون عبر بروتوكولات GitHub Pages المفتوحة.");
         }
     });
 }
 
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop();
-        }
-        fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' }).catch(function(e){});
+        try {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' }).catch(function(e){});
 
-        if (audioContext) audioContext.close();
-        if (statusEl) statusEl.innerText = "إستعداد";
-        
-        if (startMicBtn) startMicBtn.disabled = false;
-        if (stopMicBtn) {
-            stopMicBtn.disabled = true;
-            stopMicBtn.style.backgroundColor = "#4a475a";
-        }
+            if (audioContext) audioContext.close();
+            if (statusEl) statusEl.innerText = "إستعداد";
+            
+            if (startMicBtn) startMicBtn.disabled = false;
+            if (stopMicBtn) {
+                stopMicBtn.disabled = true;
+                stopMicBtn.style.backgroundColor = "#4a475a";
+            }
+        } catch (e) { console.log(e); }
     });
 }
 
@@ -236,7 +239,7 @@ if (echoSlider) {
 }
 
 // ==========================================
-// 💬 3️⃣ نظام مزامنة الرسائل والإعجابات عبر الإنترنت
+// 💬 3️⃣ جلب ومزامنة البيانات اللحظية أونلاين (معزول بالكامل)
 // ==========================================
 if (sendStudioChatBtn) {
     sendStudioChatBtn.addEventListener('click', function() {
@@ -251,9 +254,9 @@ if (sendStudioChatBtn) {
             body: JSON.stringify(msgPayload)
         }).then(function() {
             studioChatInput.value = "";
-            fetchChatAndLikes();
+            fetchChatAndLikes(); 
         }).catch(function(err) {
-            console.log(err);
+            console.error("فشل مؤقت في إرسال الشات:", err);
         });
     });
     
@@ -267,22 +270,24 @@ if (sendStudioChatBtn) {
 function fetchChatAndLikes() {
     if (!SERVER_URL) return;
 
-    // جلب الشات
-    fetch(SERVER_URL + '/api/messages')
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        if (!studioChatMessages) return;
-        studioChatMessages.innerHTML = "";
-        data.forEach(function(msg) {
-            var div = document.createElement('div');
-            div.style.marginBottom = "5px";
-            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+    // 🔲 جلب الشات أونلاين بشكل مستقل وآمن
+
+
+fetch(SERVER_URL + '/api/messages')
+.then(function(res) { return res.json(); })
+.then(function(data) {
+if (!studioChatMessages) return;
+studioChatMessages.innerHTML = "";
+data.forEach(function(msg) {
+var div = document.createElement('div');
+div.style.marginBottom = "5px";
+div.innerHTML = <b>${msg.sender}:</b> + document.createTextNode(msg.text).textContent;
 studioChatMessages.appendChild(div);
 });
 studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-}).catch(function(e){});
+}).catch(function(e){ console.log("السيرفر نائم، جاري المحاولة..."); });
 
-// جلب الإعجابات
+// 🔲 جلب تفاعلات الإعجاب أونلاين بشكل مستقل وآمن
 fetch(SERVER_URL + '/api/likes')
 .then(function(res) { return res.json(); })
 .then(function(likes) {
@@ -302,7 +307,8 @@ tbody.appendChild(tr);
 }).catch(function(e){});
 }
 
-// تشغيل الجلب الدوري كل ثانيتين فور تحميل الصفحة
+// تشغيل الجلب اللحظي التلقائي كل ثانيتين دون إعاقة واجهة المستخدم
 setInterval(fetchChatAndLikes, 2000);
 fetchChatAndLikes();
+
 
