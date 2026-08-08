@@ -86,58 +86,70 @@ listenBtn.addEventListener('click', function() {
     }
 });
 
-// إرسال الإعجابات للسيرفر عبر الإنترنت
-if (likeTrackBtn) {
-    likeTrackBtn.addEventListener('click', function() {
-        var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
-        fetch(SERVER_URL + '/api/likes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ track: currentTrackTitle })
-        }).then(function() {
-            alert("شكراً لك! تم إرسال إعجابك للاستوديو أونلاين ❤️");
-        });
-    });
-}
+      if (likeTrackBtn) {
+            likeTrackBtn.addEventListener('click', function() {
+                var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
+                var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
+                if(!likes[currentTrackTitle]) likes[currentTrackTitle] = 0;
+                likes[currentTrackTitle]++;
+                localStorage.setItem('radio_global_likes', JSON.stringify(likes));
+                localStorage.setItem('like_update_trigger', Date.now());
+                alert("شكراً لك! تم إرسال إعجابك للاستوديو ❤️");
+            });
+        }
 
-// إرسال رسائل الدردشة الحية للسيرفر عبر الإنترنت
-if (sendChatBtn) {
-    sendChatBtn.addEventListener('click', function() {
-        var text = chatInput.value.trim();
-        if(!text) return;
+        if (sendChatBtn) {
+            sendChatBtn.addEventListener('click', function() {
+                var text = chatInput.value.trim();
+                if(!text) return;
+                
+                var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+                currentChat.push({ sender: "مستمع", text: text });
+                localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
+                localStorage.setItem('chat_update_trigger', Date.now());
+                
+                chatInput.value = "";
+                renderChat();
+            });
+        }
+
+        // الاستماع لزر الإدخال (Enter) لتسهيل إرسال الشات
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendChatBtn.click();
+        });
+
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'chat_update_trigger') { renderChat(); }
+            if (e.key === 'radio_current_src' && e.newValue) {
+                player.src = e.newValue;
+                // إذا كان الراديو مشتغلاً بالفعل، قم بتحديث البث فوراً للمقطع الجديد المجدول تلقائياً
+                if (!player.paused) player.play().catch(function(){});
+            }
+            if (e.key === 'radio_track_title' && e.newValue && trackName) {
+                trackName.innerText = "المقطع الحالي: " + e.newValue;
+            }
+        });
+
+        function renderChat() {
+            if (!chatMessages) return;
+            chatMessages.innerHTML = "";
+            var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
+            currentChat.forEach(function(msg) {
+                var div = document.createElement('div');
+                div.style.marginBottom = "5px";
+                div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+                chatMessages.appendChild(div);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 🛠️ رندرة أولية عند تشغيل الواجهة لقراءة البيانات المخزنة فوراً للمقطع الحالي والدردشة
+        var initialTrack = localStorage.getItem('radio_track_title');
+        if (initialTrack && trackName) {
+            trackName.innerText = "المقطع الحالي: " + initialTrack;
+        }
+        renderChat();
         
-        fetch(SERVER_URL + '/api/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender: "مستمع", text: text })
-        }).then(function() {
-            chatInput.value = "";
-            renderOnlineChat();
-        });
-    });
-}
-
-// دالة دورية لتحديث الدردشة من السيرفر مباشرة لكل المستمعين
-function renderOnlineChat() {
-    fetch(SERVER_URL + '/api/messages')
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        if (!chatMessages) return;
-        chatMessages.innerHTML = "";
-        data.forEach(function(msg) {
-            var div = document.createElement('div');
-            div.style.removeProperty('margin-bottom');
-            div.style.marginBottom = "5px";
-            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-            chatMessages.appendChild(div);
-        });
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    });
-}
-
-// تحديث الشات تلقائياً كل ثانيتين عبر الإنترنت
-setInterval(renderOnlineChat, 2000);
-renderOnlineChat();
 
 
 
