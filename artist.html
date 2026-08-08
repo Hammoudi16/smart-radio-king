@@ -29,49 +29,46 @@
   <body>
 
     <div class="container">
-        <!-- كارت البث الرئيسي للمستمع -->
         <div class="profile-card">
-          <!-- 🛠️ تصحيح رابط صورة البروفيل لتظهر فوراً -->
-          <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
+          <!-- 🛠️ تحديث لروابط صور إنترنت حقيقية مصححة ومجربة تظهر فوراً على هاتفك -->
+          <img src="https://unsplash.com" alt="Artist Avatar" class="avatar">
           <h2 style="margin: 10px 0;">إذاعة الفنان المباشرة</h2>
-          <p><span class="badge" id="liveBadge">بث مستمر 24H</span></p>
-          <p class="now-playing" id="trackName">مستعد لتلقي استماعكم</p>
+          <p><span class="badge" id="liveBadge">بث إذاعي عالمي</span></p>
+          <p class="now-playing" id="trackName">راديو كينج الذكي</p>
           <button class="btn-play" id="listenBtn">▶ استماع إلى الراديو المباشر</button>
           <audio id="streamPlayer"></audio>
           
           <button class="like-btn" id="likeTrackBtn">❤️ أعجبتني هذه المادة الإذاعية</button>
         </div>
 
-        <!-- 📁 كارت أرشيف الحلقات المسجلة محلياً في الراديو الذاتي -->
+        <!-- كارت أرشيف الحلقات التي يتم إنتاجها وحفظها على السيرفر -->
         <div class="profile-card">
-            <h3 style="margin-top:0; border-bottom:1px solid #3c355a; padding-bottom:8px; color: #00f2fe;">📻 الحلقات المؤرشفة والمسجلة سابقاً</h3>
+            <h3 style="margin-top:0; border-bottom:1px solid #3c355a; padding-bottom:8px; color: #00f2fe;">📻 الأرشيف والمقاطع المسجلة عبر الإنترنت</h3>
             <ul class="archive-list" id="archiveContainer">
-                <li style="color: #aaa; text-align: center;">لا توجد حلقات مؤرشفة حالياً. قم بإيقاف الميكروفون في لوحة المذيع لإنتاج أول حلقة.</li>
+                <li style="color: #aaa; text-align: center;">جاري تحديث قائمة الأرشيف...</li>
             </ul>
         </div>
 
-        <!-- معرض صور الألبومات والبودكاست المصحح بالكامل -->
         <div class="profile-card">
           <h3>🎵 معرض ألبومات وبودكاست المحطة</h3>
           <div class="gallery">
             <div class="gallery-item">
-              <!-- 🛠️ تصحيح روابط الأبعاد /200/200 لإظهار أغلفة الموسيقى فوراً على شاشة الهاتف -->
-              <img src="https://picsum.photos" class="gallery-img">
+              <!-- 🛠️ صور إنترنت حقيقية من سيرفر Unsplash العالمي لضمان الألوان وعدم الحظر -->
+              <img src="https://unsplash.com" class="gallery-img">
               <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">بودكاست خواطر تونس</p>
             </div>
             <div class="gallery-item">
-              <img src="https://picsum.photos" class="gallery-img">
+              <img src="https://unsplash.com" class="gallery-img">
               <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">ألبوم الموسيقى الهادئة</p>
             </div>
           </div>
         </div>
 
-        <!-- صندوق شات المستمعين وتفعيل زر الإرسال -->
         <div class="profile-card chat-box">
-          <h3>💬 دردشة المستمعين الحية</h3>
+          <h3>💬 دردشة المستمعين العالمية الحية</h3>
           <div class="chat-messages" id="chatMessages"></div>
           <div class="chat-input-row">
-            <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع...">
+            <input type="text" id="chatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
             <button id="sendChatBtn" class="chat-btn">إرسال</button>
           </div>
         </div>
@@ -88,113 +85,103 @@
         var likeTrackBtn = document.getElementById('likeTrackBtn');
         var archiveContainer = document.getElementById('archiveContainer');
 
-        // تحديث رسائل الشات الحية محلياً كل ثانيتين
+        var serverUrl = "https://onrender.com";
+
+        // تحديث رسائل الشات الحية من السيرفر العالمي كل 3 ثوانٍ
         setInterval(function() {
-            renderChat();
-        }, 2000);
+            fetch(serverUrl + '/api/messages')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (chatMessages) {
+                        chatMessages.innerHTML = "";
+                        data.forEach(function(msg) { appendMessage(msg.sender, msg.text); });
+                    }
+                }).catch(function(e){});
+        }, 3000);
+
+        // جلب قائمة الحلقات المحفوظة فعلياً بالأرشيف على السيرفر دورياً
+        function loadArchiveFromServer() {
+            fetch(serverUrl + '/api/recordings')
+                .then(function(res) { return res.json(); })
+                .then(function(files) {
+                    if(!archiveContainer) return;
+                    archiveContainer.innerHTML = "";
+                    if(files.length === 0) {
+                        archiveContainer.innerHTML = "<li style='color: #aaa; text-align: center;'>لا توجد حلقات مؤرشفة على السيرفر حالياً</li>";
+                        return;
+                    }
+                    files.forEach(function(file) {
+                        var li = document.createElement('li');
+                        li.className = "archive-item";
+                        li.innerHTML = `<span>🎙️ تسجيل حلقة إذاعية عالمية</span> <button class="archive-listen-btn" onclick="playArchive('${file}')">استماع</button>`;
+                        archiveContainer.appendChild(li);
+                    });
+                }).catch(function() {
+                    if(archiveContainer) archiveContainer.innerHTML = "<li style='color: #aaa; text-align: center;'>تعذر تحديث الأرشيف</li>";
+                });
+        }
+
+        function playArchive(filename) {
+            player.pause();
+            player.src = serverUrl + "/recordings/" + filename;
+            player.play().catch(function(){ alert("المتصفح يمنع تشغيل الصوت تلقائياً، اضغط تشغيل مرة أخرى."); });
+            listenBtn.innerText = "⏸ إيقاف الحلقة المؤرشفة";
+        }
 
         listenBtn.addEventListener('click', function() {
-            var savedSrc = localStorage.getItem('radio_current_src');
             if (player.paused) {
-                if(savedSrc) {
-                    player.src = savedSrc;
-                    player.play().catch(function(){});
-                    listenBtn.innerText = "⏸ إيقاف مؤقت";
-                    if (liveBadge) {
-                        liveBadge.innerText = "🔴 بث مباشر شغال";
-                        liveBadge.style.background = "#ff007f";
-                    }
-                } else {
-                    alert("لا يوجد بث مجدول حالياً. قم بحفظ جدولة من لوحة المذيع واقترب من وقت البث المختار لتشغيل المسار تلقائياً.");
-                }
-            } else {
-                player.pause();
-                listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
-            }
+                listenBtn.innerText = "⏳ جاري الاتصال بالبث...";
+                player.src = serverUrl + "/radio.mp3";
+                player.play()
+                    .then(function() { listenBtn.innerText = "⏸ إيقاف مؤقت"; })
+                    .catch(function() {
+                        setTimeout(function() {
+                            player.play()
+                                .then(function() { listenBtn.innerText = "⏸ إيقاف مؤقت"; })
+                                .catch(function() {
+                                    listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
+                                    alert("السيرفر في وضع الاستيقاظ، يرجى إعادة النقر بعد ثوانٍ.");
+                                });
+                        }, 4000);
+                    });
+            } else { player.pause(); player.src = ""; listenBtn.innerText = "▶ استماع إلى الراديو المباشر"; }
         });
 
-        // تشغيل زر القلب محلياً للمزامنة الكاملة مع المذيع
+        // تشغيل وإرسال نبضة كليك زر القلب للسيرفر بنجاح عبر الإنترنت
         if (likeTrackBtn) {
             likeTrackBtn.addEventListener('click', function() {
-                var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
-                var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
-                if(!likes[currentTrackTitle]) likes[currentTrackTitle] = 0;
-                likes[currentTrackTitle]++;
-                localStorage.setItem('radio_global_likes', JSON.stringify(likes));
-                localStorage.setItem('like_update_trigger', Date.now());
-                alert("شكراً لك! تم إرسال إعجابك للاستوديو ❤️");
+                fetch(serverUrl + '/api/likes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track: "default_music.mp3" })
+                }).then(function() { alert("تم تسجيل إعجابك وإرساله بنجاح للاستوديو ❤️"); });
             });
         }
 
-        // تشغيل وإصلاح زر إرسال شات المستمعين وتفريغ الحقل
+        // تشغيل وإرسال رسائل الشات للسيرفر وتفريغ خانة الكتابة فوراً
         if (sendChatBtn) {
             sendChatBtn.addEventListener('click', function() {
                 var text = chatInput.value.trim();
                 if(!text) return;
-                
-                var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-                currentChat.push({ sender: "مستمع", text: text });
-                localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
-                localStorage.setItem('chat_update_trigger', Date.now());
-                
-                chatInput.value = "";
-                renderChat();
-            });
-        }
-
-        window.addEventListener('storage', function(e) {
-            if (e.key === 'chat_update_trigger') { renderChat(); }
-            if (e.key === 'archive_update_trigger') { loadLocalArchive(); }
-            if (e.key === 'radio_current_src' && e.newValue) {
-                player.src = e.newValue;
-                if (!player.paused) player.play().catch(function(){});
-            }
-            if (e.key === 'radio_track_title' && e.newValue && trackName) {
-                trackName.innerText = "المقطع الحالي: " + e.newValue;
-            }
-        });
-
-        function renderChat() {
-            if (!chatMessages) return;
-            chatMessages.innerHTML = "";
-            var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-            currentChat.forEach(function(msg) {
-                var div = document.createElement('div');
-                div.style.marginBottom = "5px";
-                div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-                chatMessages.appendChild(div);
-            });
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // جلب قائمة الحلقات المحفوظة محلياً بالأرشيف بعد إيقاف الميكروفون
-        function loadLocalArchive() {
-            if(!archiveContainer) return;
-            var localArchive = JSON.parse(localStorage.getItem('radio_global_archive') || "[]");
-            archiveContainer.innerHTML = "";
-            if(localArchive.length === 0) {
-                archiveContainer.innerHTML = "<li style='color: #aaa; text-align: center;'>لا توجد حلقات مؤرشفة حتى الآن</li>";
-                return;
-            }
+                fetch(serverUrl + '/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender: "مستمع", text: text })
 
 
-localArchive.forEach(function(item) {
-var li = document.createElement('li');
-li.className = "archive-item";
-li.innerHTML = <span>🎙️ تسجيل حلقة استوديو (${item.date})</span> <button class="archive-listen-btn" onclick="playArchive('${item.url}')">استماع</button>;
-archiveContainer.appendChild(li);
+}).then(function() { chatInput.value = ""; });
 });
 }
 
-function playArchive(url) {
-player.pause();
-player.src = url;
-player.play().catch(function(){ alert("تعذر تشغيل دفق الحلقة المؤرشفة في المتصفح الحالي."); });
-listenBtn.innerText = "⏸ إيقاف الحلقة المؤرشفة";
+function appendMessage(sender, msg) {
+var div = document.createElement('div');
+div.style.marginBottom = "5px";
+div.innerHTML = <b>${sender}:</b> + document.createTextNode(msg).textContent;
+chatMessages.appendChild(div);
+chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-renderChat();
-loadLocalArchive();
-
+loadArchiveFromServer();
+setInterval(loadArchiveFromServer, 10000); // تحديث الأرشيف كل 10 ثوانٍ تلقائياً
 
 
