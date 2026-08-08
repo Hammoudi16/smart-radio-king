@@ -1,6 +1,7 @@
 var db = null;
 var scheduledEvents = [];
-var mediaRecorder = null;
+var mediaRecorder = null; // مسجل الصوت الفعلي للميكروفون
+var archiveChunks = [];   // مصفوفة تجميع دفقات الحلقة للحفظ
 var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
@@ -16,6 +17,8 @@ var echoSlider = document.getElementById('echoSlider');
 var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
+
+var serverUrl = "https://onrender.com";
 
 // إعداد قاعدة البيانات المحلية IndexedDB للجدولة
 var request = indexedDB.open("RadioKingDB", 1);
@@ -132,12 +135,13 @@ if (volumeSlider) {
     });
 }
 
-// تشغيل الميكروفون المباشر للاستوديو
+// 🎤 تشغيل الميكروفون المباشر وتجهيز مصفوفة الحفظ محلياً
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
     startMicBtn.disabled = true;
     stopMicBtn.disabled = false;
 
+    // بناء محرك الصوت لإحداث الصدى والريبورت الفوري للمذيع
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioContext.createMediaStreamSource(stream);
     delayNode = audioContext.createDelay();
@@ -152,23 +156,63 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
+    // تفريغ مصفوفة الحلقات السابقة وبدء المسجل الفعلي
+    archiveChunks = [];
     mediaRecorder = new MediaRecorder(stream);
+    
+    mediaRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) {
+            archiveChunks.push(e.data); // تجميع قطع الصوت لإنتاج الحلقة كاملة
+        }
+    };
+
+    // معالجة الحدث عند الضغط على إيقاف البث لإنتاج رابط الأرشيف
+    mediaRecorder.onstop = function() {
+        if (archiveChunks.length > 0) {
+            var completeBlob = new Blob(archiveChunks, { type: 'audio/mpeg' });
+            var archiveUrl = URL.createObjectURL(completeBlob);
+            
+            // تخزين دائم للحلقة المؤرشفة في الذاكرة المشتركة للمستمعين
+            var existingArchive = JSON.parse(localStorage.getItem('radio_global_archive') || "[]");
+            existingArchive.push({ id: Date.now(), url: archiveUrl, date: new Date().toLocaleTimeString() });
+            localStorage.setItem('radio_global_archive', JSON.stringify(existingArchive));
+            
+            // إرسال نبضة تحديث دورية للمتصفح الآخر
+            localStorage.setItem('archive_update_trigger', Date.now());
+            
+            if (statusEl) statusEl.innerText = "إستعداد (تمت الأرشفة بنجاح)";
+        } else {
+            if (statusEl) statusEl.innerText = "إستعداد";
+        }
+    };
+
+    // نطلب من المسجل فحص وتقطيع الداتا كل ثانية لضمان الاستقرار
     mediaRecorder.start(1000);
 }
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(startRecording)
+                .catch(function(err) {
+                    alert("يرجى إعطاء صلاحية الوصول للميكروفون من إعدادات المتصفح أولاً!");
+                });
+        } else {
+            alert("المتصفح لا يدعم تكنولوجيا الميكروفون المباشر.");
         }
     });
 }
 
+// 🛠️ تصحيح زر إيقاف البث وإغلاق محرك الصوت بطريقة آمنة بدون تعليق
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function() {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        if (audioContext) audioContext.close();
-        if (statusEl) statusEl.innerText = "إستعداد";
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop(); // هذا السطر سيقوم بتشغيل دالة onstop وحفظ الحلقة تلقائياً
+        }
+        if (audioContext) {
+            audioContext.close();
+        }
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
     });
@@ -190,21 +234,15 @@ if (sendStudioChatBtn) {
         currentChat.push({ sender: "أنت (المذيع)", text: text });
         localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
         
-        // إشارة تحديث فورية للمتصفح الآخر
         localStorage.setItem('chat_update_trigger', Date.now()); 
-        
         studioChatInput.value = "";
         renderChat();
     });
 }
 
 window.addEventListener('storage', function(e) {
-    if (e.key === 'chat_update_trigger') {
-        renderChat();
-    }
-    if (e.key === 'like_update_trigger') {
-        renderLikes();
-    }
+    if (e.key === 'chat_update_trigger') renderChat();
+    if (e.key === 'like_update_trigger') renderLikes();
 });
 
 function renderChat() {
@@ -225,18 +263,3 @@ function renderLikes() {
     if (!tbody) return;
     tbody.innerHTML = "";
     var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
-    var tracks = Object.keys(likes);
-    if (tracks.length === 0) {
-        tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-        return;
-    }
-    tracks.forEach(function(track) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-        tbody.appendChild(tr);
-    });
-}
-
-// رندرة أولية عند تشغيل الواجهة لقراءة البيانات المخزنة
-renderChat();
-renderLikes();
