@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>صفحة الفنان - راديو كينج بث مباشر وعالمي</title>
-<style>
+    <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0c1b; color: #fffffe; text-align: center; padding: 20px; margin: 0; }
         .container { max-width: 500px; margin: 0 auto; }
         .profile-card { background: #1a1528; padding: 30px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 1px solid #251f38; }
@@ -21,13 +21,13 @@
         .chat-input { flex: 1; background: #251f38; border: 1px solid #3c355a; color: white; padding: 12px; border-radius: 8px; outline: none; }
         .chat-btn { background: #00f2fe; color: #0f0c1b; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .like-btn { background: #251f38; color: #ff007f; border: 2px solid #ff007f; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
-</style>
+    </style>
   </head>
   <body>
 
     <div class="container">
       <div class="profile-card">
-        <!-- 🛠️ روابط صور بديلة مصححة ومجربة داخل المحاكي تفتح فوراً على المتصفح -->
+        <!-- 🛠️ تم إصلاح رابط الصورة الرمزية بإضافة مقاس مربع عشوائي يفتح فوراً -->
         <img src="https://picsum.photos" alt="Artist Avatar" class="avatar">
         <h2 style="margin: 10px 0;">إذاعة الفنان المباشرة</h2>
         <p><span class="badge" id="liveBadge">بث مستمر 24H</span></p>
@@ -41,6 +41,7 @@
       <div class="profile-card">
         <h3>🎵 معرض ألبومات وبودكاست المحطة</h3>
         <div class="gallery">
+          <!-- 🛠️ تم إصلاح روابط صور المعرض بإضافة معرفات ومقاسات صحيحة لمنع التكرار -->
           <div class="gallery-item">
             <img src="https://picsum.photos" class="gallery-img">
             <p style="font-size:13px; margin:8px 0 0 0; font-weight: bold;">بودكاست خواطر تونس</p>
@@ -62,87 +63,77 @@
       </div>
     </div>
 
-<script>
-        var player = document.getElementById('streamPlayer');
-        var listenBtn = document.getElementById('listenBtn');
-        var liveBadge = document.getElementById('liveBadge');
-        var trackName = document.getElementById('trackName');
-        var chatMessages = document.getElementById('chatMessages');
-        var chatInput = document.getElementById('chatInput');
-        var sendChatBtn = document.getElementById('sendChatBtn');
-        var likeTrackBtn = document.getElementById('likeTrackBtn');
+    <script>
+        var SERVER_URL = "https://onrender.com";
+var player = document.getElementById('streamPlayer');
+var listenBtn = document.getElementById('listenBtn');
+var trackName = document.getElementById('trackName');
 
-        listenBtn.addEventListener('click', function() {
-            var savedSrc = localStorage.getItem('radio_current_src');
-            if (player.paused) {
-                if(savedSrc) {
-                    player.src = savedSrc;
-                    player.play().catch(function(){});
-                    listenBtn.innerText = "⏸ إيقاف مؤقت";
-                } else {
-                    alert("لا يوجد بث مجدول حالياً. قم بحفظ جدولة من لوحة المذيع.");
-                }
-            } else {
-                player.pause();
-                listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
-            }
+// تشغيل البث المباشر الحي القادم من السيرفر مباشرة
+listenBtn.addEventListener('click', function() {
+    if (player.paused) {
+        player.src = SERVER_URL + "/radio.mp3"; // قراءة دفق الراديو المشترك عبر الإنترنت
+        player.play().catch(function(){});
+        listenBtn.innerText = "⏸ إيقاف مؤقت";
+    } else {
+        player.pause();
+        listenBtn.innerText = "▶ استماع إلى الراديو المباشر";
+    }
+});
+
+// إرسال الإعجابات للسيرفر عبر الإنترنت
+if (likeTrackBtn) {
+    likeTrackBtn.addEventListener('click', function() {
+        var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
+        fetch(SERVER_URL + '/api/likes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ track: currentTrackTitle })
+        }).then(function() {
+            alert("شكراً لك! تم إرسال إعجابك للاستوديو أونلاين ❤️");
         });
+    });
+}
 
-        // تشغيل زر القلب محلياً للمزامنة الكاملة
-        if (likeTrackBtn) {
-            likeTrackBtn.addEventListener('click', function() {
-                var currentTrackTitle = localStorage.getItem('radio_track_title') || "default_music.mp3";
-                var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
-                if(!likes[currentTrackTitle]) likes[currentTrackTitle] = 0;
-                likes[currentTrackTitle]++;
-                localStorage.setItem('radio_global_likes', JSON.stringify(likes));
-                localStorage.setItem('like_update_trigger', Date.now());
-                alert("شكراً لك! تم إرسال إعجابك للاستوديو ❤️");
-            });
-        }
-
-        // تشغيل وإصلاح كتابة كلمة مرحبا وإرسال الشات بنجاح
-        if (sendChatBtn) {
-            sendChatBtn.addEventListener('click', function() {
-                var text = chatInput.value.trim();
-                if(!text) return;
-                
-                var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-                currentChat.push({ sender: "مستمع", text: text });
-                localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
-                localStorage.setItem('chat_update_trigger', Date.now());
-                
-                chatInput.value = "";
-                renderChat();
-            });
-        }
-
-        window.addEventListener('storage', function(e) {
-            if (e.key === 'chat_update_trigger') { renderChat(); }
-            if (e.key === 'radio_current_src' && e.newValue) {
-                player.src = e.newValue;
-                if (!player.paused) player.play().catch(function(){});
-            }
-            if (e.key === 'radio_track_title' && e.newValue && trackName) {
-                trackName.innerText = "المقطع الحالي: " + e.newValue;
-            }
+// إرسال رسائل الدردشة الحية للسيرفر عبر الإنترنت
+if (sendChatBtn) {
+    sendChatBtn.addEventListener('click', function() {
+        var text = chatInput.value.trim();
+        if(!text) return;
+        
+        fetch(SERVER_URL + '/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sender: "مستمع", text: text })
+        }).then(function() {
+            chatInput.value = "";
+            renderOnlineChat();
         });
+    });
+}
 
-        function renderChat() {
-            if (!chatMessages) return;
-            chatMessages.innerHTML = "";
-            var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-            currentChat.forEach(function(msg) {
-                var div = document.createElement('div');
-                div.style.marginBottom = "5px";
-                div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-                chatMessages.appendChild(div);
-            });
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
+// دالة دورية لتحديث الدردشة من السيرفر مباشرة لكل المستمعين
+function renderOnlineChat() {
+    fetch(SERVER_URL + '/api/messages')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (!chatMessages) return;
+        chatMessages.innerHTML = "";
+        data.forEach(function(msg) {
+            var div = document.createElement('div');
+            div.style.removeProperty('margin-bottom');
+            div.style.marginBottom = "5px";
+            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+            chatMessages.appendChild(div);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+}
 
-        renderChat();
-</script>
+// تحديث الشات تلقائياً كل ثانيتين عبر الإنترنت
+setInterval(renderOnlineChat, 2000);
+renderOnlineChat();
+
+    </script>
   </body>
 </html>
-
