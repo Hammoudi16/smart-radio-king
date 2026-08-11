@@ -7,6 +7,9 @@ var cors = require('cors');
 var app = express();
 var PORT = process.env.PORT || 3000;
 
+// كلمة المرور السرية الخاصة بلوحة تحكم المذيع (يمكنك تغييرها هنا)
+const STUDIO_PASSWORD = "123456"; 
+
 var subscribers = [];
 var radioSchedule = [
     { day: 0, time: "20:00", file: "album1.mp3" }, 
@@ -26,39 +29,39 @@ if (!fs.existsSync(recDir)) { fs.mkdirSync(recDir); }
 if (!fs.existsSync(audioDir)) { fs.mkdirSync(audioDir); }
 
 var storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, audioDir);
-    },
-    filename: function (req, file, cb) {
-        cb(null, 'album_' + Date.now() + path.extname(file.originalname));
-    }
+    destination: function (req, file, cb) { cb(null, audioDir); },
+    filename: function (req, file, cb) { cb(null, 'album_' + Date.now() + path.extname(file.originalname)); }
 });
 var upload = multer({ storage: storage });
 
-// إعدادات الـ CORS والـ Middlewares
 app.use(cors());
 app.use(express.json());
 
-// استقبال الميكروفون بصيغته الخام المتوافقة مع الهواتف والمتصفحات
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }));
 
-// تشغيل وتوجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public تلقائياً فور فتح الرابط
+// مسار للتحقق من كلمة المرور القادمة من المتصفح
+app.post('/api/verify-login', function(req, res) {
+    var pass = req.body.password;
+    if (pass === STUDIO_PASSWORD) {
+        return res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
+    }
+    res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة!" });
+});
+
+// تشغيل وتوجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public تلقائياً
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 💬 استقبال وحفظ رسائل الدردشة
 app.post('/api/messages', function(req, res) {
     var text = req.body.text;
-    if (!text && req.body) {
-        text = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-    }
+    if (!text && req.body) { text = typeof req.body === 'string' ? req.body : JSON.stringify(req.body); }
     if (text) {
         globalMessages.push({
             sender: "المذيع",
             text: String(text).replace('{"text":"', '').replace('"}', '').trim()
         });
         if (globalMessages.length > 50) globalMessages.shift();
-        
         res.setHeader('Content-Type', 'application/json');
         return res.status(200).send(JSON.stringify({ status: "success" }));
     }
@@ -80,11 +83,9 @@ app.post('/api/likes', function(req, res) {
 
 app.get('/api/likes', function(req, res) { res.status(200).json(globalLikes); });
 
-// 💾 رفع الألبومات وجدولتها تلقائياً
+// 💾 رفع الألبومات وجدولتها
 app.post('/api/upload-album', upload.single('audioFile'), function(req, res) {
-    if (!req.file) {
-        return res.status(400).json({ error: "لم يتم استلام أي ملف صوتي" });
-    }
+    if (!req.file) { return res.status(400).json({ error: "لم يتم استلام أي ملف صوتي" }); }
     var filename = req.file.filename;
     var now = new Date();
     radioSchedule.push({ 
@@ -95,7 +96,7 @@ app.post('/api/upload-album', upload.single('audioFile'), function(req, res) {
     res.status(200).json({ status: "success", file: filename });
 });
 
-// 🎤 بث الميكروفون المباشر للمستمعين
+// 🎤 بث الميكروفون المباشر
 app.post('/api/stream-mic', function(req, res) {
     isMicLive = true; 
     var audioBuffer = req.body;
@@ -116,7 +117,7 @@ app.post('/api/archive', function(req, res) {
     });
 });
 
-// 📻 منفذ بث الراديو الحي المشترك المستمر للمستمعين
+// 📻 منفذ بث الراديو الحي المشترك المستمر
 app.get('/radio.mp3', function(req, res) {
     res.writeHead(200, { 
         'Content-Type': 'audio/mpeg', 
@@ -128,7 +129,6 @@ app.get('/radio.mp3', function(req, res) {
     req.on('close', function() { subscribers = subscribers.filter(function(sub) { return sub !== res; }); });
 });
 
-// دالة بث الموسيقى التلقائية المستمرة عند غياب الميكروفون المباشر
 function broadcastAudio() {
     if (isMicLive) { setTimeout(broadcastAudio, 500); return; }
     var trackPath = path.join(audioDir, currentTrack);
@@ -159,7 +159,6 @@ function broadcastAudio() {
     });
 }
 
-// فحص الجدولة الزمنية كل ثانية
 setInterval(function() {
     var now = new Date(); 
     var currentDay = now.getDay();
