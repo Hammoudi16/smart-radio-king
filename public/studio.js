@@ -273,3 +273,56 @@ function loadSavedTracks() {
         uniqueKeys.add(key);
         scheduledEvents.push({ day: cursor.value.day, time: cursor.value.time });
       }
+cursor.continue(); 
+} 
+}; 
+}
+
+دالة TriggerAlbumPlay(day, time) { 
+varstatusEl = document.getElementById('currentStatus'); 
+var radioPlayer = document.getElementById('radioPlayer'); 
+if (statusEl)statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً..."; 
+معاملة var = db.transaction(["tracks"], "readonly"); 
+var store = treatment.objectStore("tracks").index("schedKey").getAll([day, time]);
+
+store.onsuccess = function(e) { 
+var tracks = e.target.result; 
+if (tracks.length === 0) return; 
+var trackIndex = 0; 
+function playNext() { 
+if (trackIndex < tracks.length) { 
+var fileURL = URL.createObjectURL(tracks[trackIndex].blob); 
+radioPlayer.src = fileURL; 
+radioPlayer.play().catch(function() { trackIndex++; playNext(); }); 
+radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); }; 
+} else { 
+if (statusEl) statusEl.innerText = "انتهى"; 
+radioPlayer.src = SERVER_URL + "/radio.mp3"; 
+} 
+} 
+playNext(); 
+}; 
+}
+
+وظيفة startRecording(stream) { 
+var startMicBtn = document.getElementById('startMicBtn'); 
+var stopMicBtn = document.getElementById('stopMicBtn'); 
+var StatusEl = document.getElementById('currentStatus');
+
+إذا (startMicBtn) startMicBtn.disabled = true؛ 
+إذا (stopMicBtn) stopMicBtn.disabled = false؛ 
+if (statusEl)statusEl.innerText = "🔴 الميكروفون المباشر النشط حاليًا...";
+
+var mimeType = 'audio/webm;codecs=opus'; 
+if (!MediaRecorder.isTypeSupported(mimeType)) { mimeType = 'audio/ogg;codecs=opus'; }
+
+mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType }); 
+mediaRecorder.ondataavailable = function(e) { 
+if (e.data.size > 0) { 
+fetch(SERVER_URL + '/api/stream-mic', { method: 'POST', headers: { 'Content-Type': mimeType }, body: e.data }); 
+} 
+}; 
+mediaRecorder.start(250); 
+}
+
+
