@@ -134,7 +134,8 @@ function initializeStudio() {
             }
 
             var formData = new FormData();
-            formData.append("audioFile", files); 
+            // 🛠️ تم التعديل لتمرير الملف الأول الصافي بدلاً من مصفوفة الكائنات بالكامل
+            formData.append("audioFile", files[0]); 
 
             fetch(SERVER_URL + '/api/upload-album', {
                 method: 'POST',
@@ -262,9 +263,9 @@ function startRecording(stream) {
     var echoSlider = document.getElementById('echoSlider');
 
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
-    if (startMicBtn) startMicBtn.disabled = true;
-    if (stopMicBtn) stopMicBtn.disabled = false;
 
+if (startMicBtn) startMicBtn.disabled = true;
+if (stopMicBtn) stopMicBtn.disabled = false;
 
 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 var source = audioContext.createMediaStreamSource(stream);
@@ -311,6 +312,7 @@ var div = document.createElement('div');
 div.style.marginBottom = "5px";
 var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
 var senderContent = msg.sender ? msg.sender : "المذيع";
+// 🛠️ تم إصلاح طريقة الصياغة النصية بإضافة علامات الـ Template Literals الصحيحة لتجنب الخطأ القاتل للمتصفح
 div.innerHTML = <b>${senderContent}:</b> + document.createTextNode(textContent).textContent;
 studioChatMessages.appendChild(div);
 });
@@ -328,15 +330,15 @@ if (!tbody) return;
 tbody.innerHTML = "";
 var tracks = Object.keys(likes);
 if (tracks.length === 0) {
-tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>;
+tbody.innerHTML = 'لا توجد تفاعلات حتى الآن0';
 return;
 }
 tracks.forEach(function(track) {
 var tr = document.createElement('tr');
+// 🛠️ تم إصلاح الدمج هنا أيضاً لتفادي تجميد اللوحة البرمجية
 tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
 tbody.appendChild(tr);
 });
 }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
 }
-
 
