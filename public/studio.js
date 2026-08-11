@@ -271,3 +271,67 @@ function startRecording(stream) {
     source.connect(delayNode);
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
+
+
+delayNode.connect(audioContext.destination);
+source.connect(audioContext.destination);
+
+var mimeType = 'audio/webm;codecs=opus';
+if (!MediaRecorder.isTypeSupported(mimeType)) {
+mimeType = 'audio/ogg;codecs=opus';
+}
+
+mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+mediaRecorder.ondataavailable = function(e) {
+if (e.data.size > 0) {
+fetch(SERVER_URL + '/api/stream-mic', {
+method: 'POST',
+headers: { 'Content-Type': mimeType },
+body: e.data
+}).catch(function(err) { console.log(err); });
+}
+};
+mediaRecorder.start(500);
+}
+
+function fetchChatFromServer() {
+var studioChatMessages = document.getElementById('studioChatMessages');
+fetch(SERVER_URL + '/api/messages')
+.then(function(res) { return res.json(); })
+.then(function(messages) {
+if (!studioChatMessages) return;
+studioChatMessages.innerHTML = "";
+if (Array.isArray(messages)) {
+messages.forEach(function(msg) {
+var div = document.createElement('div');
+div.style.marginBottom = "5px";
+var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
+var senderContent = msg.sender ? msg.sender : "المذيع";
+div.innerHTML = <b>${senderContent}:</b> + document.createTextNode(textContent).textContent;
+studioChatMessages.appendChild(div);
+});
+}
+studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+}).catch(function(err) { console.log("خطأ جلب الشات:", err); });
+}
+
+function fetchLikesFromServer() {
+var tbody = document.getElementById('likesTableBody');
+fetch(SERVER_URL + '/api/likes')
+.then(function(res) { return res.json(); })
+.then(function(likes) {
+if (!tbody) return;
+tbody.innerHTML = "";
+var tracks = Object.keys(likes);
+if (tracks.length === 0) {
+tbody.innerHTML = 'لا توجد تفاعلات حتى الآن0';
+return;
+}
+tracks.forEach(function(track) {
+var tr = document.createElement('tr');
+tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
+tbody.appendChild(tr);
+});
+}).catch(function(err) { console.log("خطأ تفاعلات:", err); });
+}
+
