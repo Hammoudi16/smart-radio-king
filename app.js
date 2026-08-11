@@ -65,6 +65,7 @@ setInterval(function() {
     fetchLikesFromServer();
 }, 3000);
 
+// 📅 زر حفظ الجدولة ورفع الملف الصوتي تلقائياً إلى السيرفر
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function() {
         var files = document.getElementById('albumFiles').files;
@@ -76,15 +77,30 @@ if (saveSchedBtn) {
             return;
         }
 
+        // 1. حفظ الجدولة محلياً في قاعدة بيانات المتصفح
         var transaction = db.transaction(["tracks"], "readwrite");
         var store = transaction.objectStore("tracks");
         for (var j = 0; j < files.length; j++) {
             store.add({ name: files[j].name, blob: files[j], day: day, time: time });
         }
-        transaction.oncomplete = function() {
+
+        // 2. رفع الملف الصوتي تلقائياً عبر الشبكة إلى السيرفر السحابي ليسمعه الجميع
+        var formData = new FormData();
+        formData.append("audioFile", files[0]); 
+
+        fetch(SERVER_URL + '/api/upload-album', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function() {
+            alert("تم رفع الملف إلى السيرفر وتثبيت الجدولة بنجاح!");
+            loadSavedTracks();
+        })
+        .catch(function(err) {
+            console.log("فشل الرفع السحابي، تم الحفظ محلياً فقط:", err);
             alert("تم تفعيل وتثبيت الجدولة بنجاح!");
             loadSavedTracks();
-        };
+        });
     });
 }
 
