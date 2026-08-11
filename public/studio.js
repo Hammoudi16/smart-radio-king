@@ -270,3 +270,69 @@ function loadSavedTracks() {
   var transaction = db.transaction(["tracks"], "readonly");
   var store = transaction.objectStore("tracks");
   scheduledEvents = [];
+var uniqueKeys = new Set(); 
+store.openCursor().onsuccess = function(e) { 
+var cursor = e.target.result; 
+if (cursor) { 
+var key = cursor.value.day + "_" + cursor.value.time; 
+if (!uniqueKeys.has(key)) { 
+uniqueKeys.add(key); 
+scheduledEvents.push({ day: cursor.value.day, time: cursor.value.time }); 
+} 
+cursor.continue(); 
+} 
+}; 
+}
+
+دالة TriggerAlbumPlay(day, time) { 
+varstatusEl = document.getElementById('currentStatus'); 
+var radioPlayer = document.getElementById('radioPlayer'); 
+if (statusEl)statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً..."; 
+معاملة var = db.transaction(["tracks"], "readonly"); 
+var store = treatment.objectStore("tracks").index("schedKey").getAll([day, time]);
+
+store.onsuccess = function(e) { 
+var tracks = e.target.result; 
+if (tracks.length === 0) return; 
+var trackIndex = 0; 
+function playNext() { 
+if (trackIndex < tracks.length) { 
+var fileURL = URL.createObjectURL(tracks[trackIndex].blob); 
+radioPlayer.src = fileURL; 
+radioPlayer.play().catch(function() { trackIndex++; playNext(); }); 
+radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); }; 
+} else { 
+if (statusEl) statusEl.innerText = "انتهى"; 
+radioPlayer.src = SERVER_URL + "/radio.mp3"; 
+} 
+} 
+playNext(); 
+}; 
+}
+
+وظيفة startRecording(stream) { 
+var startMicBtn = document.getElementById('startMicBtn'); 
+var stopMicBtn = document.getElementById('stopMicBtn'); 
+var StatusEl = document.getElementById('currentStatus');
+
+إذا (startMicBtn) startMicBtn.disabled = true؛ 
+إذا (stopMicBtn) stopMicBtn.disabled = false؛ 
+if (statusEl)statusEl.innerText = "🔴 الميكروفون المباشر النشط حاليًا...";
+
+var options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 }; 
+if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'audio/ogg;codecs=opus' }; } 
+if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'audio/webm' }; }
+
+mediaRecorder = new MediaRecorder(stream, options); 
+mediaRecorder.ondataavailable = function(e) { 
+if (e.data && e.data.size > 0) { 
+fetch(SERVER_URL + '/api/stream-mic', { 
+الطريقة: 'POST', 
+headers: { 'Content-Type': options.mimeType }, 
+body: e.data 
+}).catch(function(err){ console.log(err); }); 
+} 
+}; 
+mediaRecorder.start(200); // تحديث الصوت كل 200 مللي ثانية لمنع الفجوات الصوتية في الأندرويد 
+}
+
