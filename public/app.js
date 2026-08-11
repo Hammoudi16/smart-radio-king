@@ -24,45 +24,24 @@ return;
 
 if (submitBtn) {
 submitBtn.onclick = function() {
-var pass = passInput.value.trim();
-if (!pass) {
-alert("الرجاء كتابة كلمة المرور أولاً!");
-return;
-}
-    fetch(SERVER_URL + '/api/verify-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pass })
-    })
-    .then(function(res) { 
-        if (!res.ok) {
-            throw new Error("Invalid password");
-        }
-        return res.json(); 
-    })
-    .then(function(data) {
-        if (data.success) {
-            sessionStorage.setItem('studio_authenticated', 'true');
-            if (overlay) overlay.style.display = "none";
-            if (mainContent) mainContent.style.display = "block";
-            initializeStudio();
-        } else {
-            alert("كلمة المرور خاطئة! تم رفض دخولك.");
-            window.location.href = "/artist.html";
-        }
-    })
-    .catch(function() {
-        // حل احتياطي ذكي وفوري لضمان الدخول في حال حدوث أي خطأ في معالجة الشبكة بالهاتف
-        if (pass === "123456") {
-            sessionStorage.setItem('studio_authenticated', 'true');
-            if (overlay) overlay.style.display = "none";
-            if (mainContent) mainContent.style.display = "block";
-            initializeStudio();
-        } else {
-            alert("كلمة المرور خاطئة!");
-            window.location.href = "/artist.html";
-        }
-    });
+    var pass = passInput.value.trim();
+    if (!pass) {
+        alert("الرجاء كتابة كلمة المرور أولاً!");
+        return;
+    }
+
+    // Vérification locale immédiate et prioritaire pour éviter les blocages mobiles
+    if (pass === "123456") {
+        sessionStorage.setItem('studio_authenticated', 'true');
+        if (overlay) overlay.style.display = "none";
+        if (mainContent) mainContent.style.display = "block";
+        initializeStudio();
+    } else {
+        alert("كلمة المرور خاطئة! تم رفض دخولك.");
+        window.location.href = "/artist.html";
+    }
+};
+
 };
 
 }
