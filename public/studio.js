@@ -125,7 +125,7 @@ function initializeStudio() {
             }
 
             var formData = new FormData();
-            formData.append("audioFile", files[0]); 
+            formData.append("audioFile", files); 
 
             fetch(SERVER_URL + '/api/upload-album', {
                 method: 'POST',
@@ -276,6 +276,7 @@ function startRecording(stream) {
     }
 
 
+
 mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
 mediaRecorder.ondataavailable = function(e) {
 if (e.data.size > 0) {
@@ -302,8 +303,8 @@ var div = document.createElement('div');
 div.style.marginBottom = "5px";
 var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
 var senderContent = msg.sender ? msg.sender : "المذيع";
-// 🛠️ تم تصليح السلسلة النصية هنا بوضعها داخل علامات الـ Backticks الصحيحة تماماً لمنع توقف الزر
-div.innerHTML = <b>${senderContent}:</b> + document.createTextNode(textContent).textContent;
+// 🛠️ تم تصليح السلسلة النصية هنا باستخدام علامات تنصيص عادية مدمجة تناسب لوحة مفاتيح الهاتف تماماً
+div.innerHTML = "" + senderContent + ": " + document.createTextNode(textContent).textContent;
 studioChatMessages.appendChild(div);
 });
 }
@@ -325,8 +326,8 @@ return;
 }
 tracks.forEach(function(track) {
 var tr = document.createElement('tr');
-// 🛠️ تم تصليح السلسلة البرمجية النصية للجدول هنا أيضاً
-tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
+// 🛠️ تم تصليح السلسلة النصية هنا أيضاً لتفادي توقف استجابة المتصفح
+tr.innerHTML = "" + track + "" + likes[track] + " ❤️";
 tbody.appendChild(tr);
 });
 }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
