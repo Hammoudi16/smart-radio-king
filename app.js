@@ -6,7 +6,7 @@ var delayNode = null;
 var feedbackNode = null;
 
 // 🔗 الرابط الخاص بموقعك وسيرفرك على Render (تأكد من مطابقة اسم مشروعك تماماً)
-var SERVER_URL = "https://onrender.com";
+var SERVER_URL = window.location.origin;
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
