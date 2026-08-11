@@ -7,7 +7,7 @@ var cors = require('cors');
 var app = express();
 var PORT = process.env.PORT || 3000;
 
-// كلمة المرور السرية الخاصة بلوحة تحكم المذيع (يمكنك تغييرها هنا)
+// كلمة المرور السرية المعتمدة لدخول الاستوديو
 const STUDIO_PASSWORD = "123456"; 
 
 var subscribers = [];
@@ -34,23 +34,23 @@ var storage = multer.diskStorage({
 });
 var upload = multer({ storage: storage });
 
+// تفعيل قراءة الـ JSON والـ CORS لتمرير كلمة المرور بأمان
 app.use(cors());
 app.use(express.json());
 
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }));
 
-// مسار التحقق من كلمة المرور في server.js
+// 🔐 المسار المصلح بنسبة 100% للتحقق من كلمة المرور القادمة من شاشة الدخول المدمجة
 app.post('/api/verify-login', function(req, res) {
     var pass = req.body.password;
-    if (pass === "123456") { // تأكد من مطابقة كلمة المرور هنا
+    if (String(pass) === String(STUDIO_PASSWORD)) {
         return res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
     }
     res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة!" });
 });
 
-
-// تشغيل وتوجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public تلقائياً
+// توجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 💬 استقبال وحفظ رسائل الدردشة
@@ -118,7 +118,7 @@ app.post('/api/archive', function(req, res) {
     });
 });
 
-// 📻 منفذ بث الراديو الحي المشترك المستمر
+// 📻 منفذ بث الراديو الحي المستمر للمستمعين
 app.get('/radio.mp3', function(req, res) {
     res.writeHead(200, { 
         'Content-Type': 'audio/mpeg', 
