@@ -1,1 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استوديو راديو كينج الاحترافي</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; color: #ff0055; font-size: 2.2rem; margin-bottom: 30px; text-shadow: 0 0 10px rgba(255, 0, 85, 0.3); }
+        .grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .card { background: #1f1d2e; padding: 25px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        .card h3 { margin-top: 0; color: #ff0055; border-bottom: 2px solid #2a283e; padding-bottom: 10px; font-size: 1.2rem; }
+        button { background: #ff0055; color: #fffffe; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; width: 100%; margin: 8px 0; }
+        button:hover { background: #ff3377; transform: translateY(-2px); }
+        button:disabled { background: #4a475a; cursor: not-allowed; transform: none; }
+        .status { color: #00ebc7; font-weight: bold; text-shadow: 0 0 5px rgba(0, 235, 199, 0.2); }
+        input, select { background: #0f0e17; color: #fffffe; border: 1px solid #4a475a; padding: 10px; border-radius: 6px; margin: 8px 0; width: 100%; box-sizing: border-box; }
+        input[type="range"] { accent-color: #ff0055; background: #2a283e; height: 6px; border-radius: 3px; padding: 0; }
+        .chat-messages { height: 160px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input { flex: 1; }
+        table { width: 100%; text-align: right; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border-bottom: 1px solid #2a283e; }
+        th { color: #00ebc7; }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <h1>🎙️ استوديو راديو كينج الذكي</h1>
+
+      <div class="grid-layout">
+        <div class="card">
+          <h3>📊 مؤشرات الاستوديو المباشر</h3>
+          <p>حالة البث الحالية: <span id="currentStatus" class="status">إستعداد</span></p>
+          <p>ساعة الاستوديو: <span id="clock">00:00:00</span></p>
+          <br>
+          <label>🔊 مستوى الصوت العام للألبومات:</label>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+          <br><br>
+          <label>🌀 صدى صوت الميكروفون المباشر:</label>
+          <input type="range" id="echoSlider" min="0" max="0.8" step="0.1" value="0">
+        </div>
+
+        <div class="card">
+          <h3>🎤 التحكم في الميكروفون والأرشفة تلقائياً</h3>
+          <p style="font-size: 13px; color: #a7a6ba;">عند بدء البث، يقوم النظام بتسجيل الحلقة محلياً، وعند الإيقاف تُرسل تلقائياً للأرشيف.</p>
+          <button id="startMicBtn">🔴 تشغيل الميكروفون وبث مباشر الآن</button>
+          <button id="stopMicBtn" disabled style="background: #4a475a;">إيقاف البث وحفظ الحلقة في الأرشيف</button>
+        </div>
+
+        <div class="card">
+          <h3>💬 دردشة المستمعين (الاستوديو)</h3>
+          <div class="chat-messages" id="studioChatMessages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="studioChatInput" class="chat-input" placeholder="اكتب رد المذيع هنا...">
+            <button id="sendStudioChatBtn" style="width: auto; margin: 0;">رد</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📊 الموسيقى الأكثر تفاعلاً وإعجاباً ❤️</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>اسم الملف الصوتي</th>
+                <th style="text-align: center;">الإعجابات</th>
+              </tr>
+            </thead>
+            <tbody id="likesTableBody">
+              <tr>
+                <td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td>
+                <td style="text-align: center; color: #a7a6ba;">0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3>📅 نظام جدولة الألبومات الأسبوعية التلقائي (IndexedDB)</h3>
+        <label>اختر الملفات الصوتية للألبوم:</label>
+        <input type="file" id="albumFiles" multiple accept="audio/*">
+        
+        <div style="display: flex; gap: 15px; margin-top: 10px;">
+          <div style="flex: 1;">
+            <label>يوم البث الأسبوعي:</label>
+            <select id="schedDay">
+              <option value="0">الأحد</option>
+              <option value="1">الإثنين</option>
+              <option value="2">الثلاثاء</option>
+              <option value="3">الأربعاء</option>
+              <option value="4">الخميس</option>
+              <option value="5">الجمعة</option>
+              <option value="6">السبت</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label>ساعة البدء (توقيت محلي):</label>
+            <input type="time" id="schedTime">
+          </div>
+        </div>
+        <button id="saveSchedBtn" style="background: #00ebc7; color: #0f0e17;">💾 حفظ وتثبيت الجدولة في الذاكرة التلقائية</button>
+      </div>
+    </div>
+
+    <audio id="radioPlayer" preload="auto"></audio>
+    <script src="app.js"></script>
+  </body>
+</html>
 
