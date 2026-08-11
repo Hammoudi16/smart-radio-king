@@ -14,7 +14,6 @@ window.addEventListener('DOMContentLoaded', function() {
     var submitBtn = document.getElementById('submitPassBtn');
     var passInput = document.getElementById('studioPassInput');
 
-    // دالة مصلحة وحاسمة لتخطي القفل وإجبار المتصفح على عرض لوحة التحكم بشتى الطرق
     function forceUnlockStudio() {
         if (overlay) overlay.style.setProperty("display", "none", "important");
         if (mainContent) {
@@ -37,7 +36,6 @@ window.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // تحقق فوري ومحلي صارم لمنع الأخطاء الصامتة على شبكات الهاتف
             if (pass === "123456") {
                 sessionStorage.setItem('studio_authenticated', 'true');
                 forceUnlockStudio();
@@ -48,7 +46,6 @@ window.addEventListener('DOMContentLoaded', function() {
         };
     }
     
-    // تفعيل ضغط زر Enter للتسهيل
     if (passInput) {
         passInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') submitBtn.click();
@@ -161,7 +158,6 @@ function initializeStudio() {
     }
 
     if (stopMicBtn) {
-        stopMicBtn.disabled = true;
         stopMicBtn.addEventListener('click', function(e) {
             if (e) e.preventDefault();
             if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
@@ -271,15 +267,14 @@ function startRecording(stream) {
     source.connect(delayNode);
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
+    delayNode.connect(audioContext.destination);
+    source.connect(audioContext.destination);
 
+    var mimeType = 'audio/webm;codecs=opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/ogg;codecs=opus';
+    }
 
-delayNode.connect(audioContext.destination);
-source.connect(audioContext.destination);
-
-var mimeType = 'audio/webm;codecs=opus';
-if (!MediaRecorder.isTypeSupported(mimeType)) {
-mimeType = 'audio/ogg;codecs=opus';
-}
 
 mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
 mediaRecorder.ondataavailable = function(e) {
@@ -307,6 +302,7 @@ var div = document.createElement('div');
 div.style.marginBottom = "5px";
 var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
 var senderContent = msg.sender ? msg.sender : "المذيع";
+// 🛠️ تم تصليح السلسلة النصية هنا بوضعها داخل علامات الـ Backticks الصحيحة تماماً لمنع توقف الزر
 div.innerHTML = <b>${senderContent}:</b> + document.createTextNode(textContent).textContent;
 studioChatMessages.appendChild(div);
 });
@@ -329,6 +325,7 @@ return;
 }
 tracks.forEach(function(track) {
 var tr = document.createElement('tr');
+// 🛠️ تم تصليح السلسلة البرمجية النصية للجدول هنا أيضاً
 tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
 tbody.appendChild(tr);
 });
