@@ -5,7 +5,7 @@ var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
 
-// 🔗 الرابط الخاص بموقعك وسيرفرك الجديد على Render (دون وضع شرطة / في نهايته)
+// 🔗 الرابط الخاص بموقعك وسيرفرك على Render (تأكد من مطابقة اسم مشروعك تماماً)
 var SERVER_URL = "https://onrender.com";
 
 var radioPlayer = document.getElementById('radioPlayer');
@@ -59,15 +59,16 @@ setInterval(function() {
     }
 }, 1000);
 
-// تحديث دوري للشات والتفاعلات حياً من السيرفر السحابي
+// تحديث دوري لجلب الشات والتفاعلات حياً من السيرفر السحابي
 setInterval(function() {
     fetchChatFromServer();
     fetchLikesFromServer();
 }, 3000);
 
-// 📅 زر حفظ الجدولة ورفع الملف الصوتي تلقائياً إلى السيرفر
+// 📅 زر حفظ الجدولة ورفع الملف الصوتي
 if (saveSchedBtn) {
-    saveSchedBtn.addEventListener('click', function() {
+    saveSchedBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         var files = document.getElementById('albumFiles').files;
         var day = document.getElementById('schedDay').value;
         var time = document.getElementById('schedTime').value;
@@ -77,14 +78,12 @@ if (saveSchedBtn) {
             return;
         }
 
-        // 1. حفظ الجدولة محلياً في قاعدة بيانات المتصفح
         var transaction = db.transaction(["tracks"], "readwrite");
         var store = transaction.objectStore("tracks");
         for (var j = 0; j < files.length; j++) {
             store.add({ name: files[j].name, blob: files[j], day: day, time: time });
         }
 
-        // 2. رفع الملف الصوتي تلقائياً عبر الشبكة إلى السيرفر السحابي ليسمعه الجميع
         var formData = new FormData();
         formData.append("audioFile", files[0]); 
 
@@ -97,7 +96,7 @@ if (saveSchedBtn) {
             loadSavedTracks();
         })
         .catch(function(err) {
-            console.log("فشل الرفع السحابي، تم الحفظ محلياً فقط:", err);
+            console.log("فشل الرفع السحابي، تم الحفظ محلياً:", err);
             alert("تم تفعيل وتثبيت الجدولة بنجاح!");
             loadSavedTracks();
         });
@@ -188,7 +187,8 @@ function startRecording(stream) {
 }
 
 if (startMicBtn) {
-    startMicBtn.addEventListener('click', function() {
+    startMicBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
         }
@@ -196,7 +196,8 @@ if (startMicBtn) {
 }
 
 if (stopMicBtn) {
-    stopMicBtn.addEventListener('click', function() {
+    stopMicBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
         if (audioContext) audioContext.close();
         if (statusEl) statusEl.innerText = "إستعداد";
@@ -212,10 +213,14 @@ if (echoSlider) {
     });
 }
 
+// 💬 تعديل دالة الإرسال لمنع تعليق الصفحة وتثبيت تشغيل الزر
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.addEventListener('click', function() {
+    sendStudioChatBtn.addEventListener('click', function(e) {
+        if(e) e.preventDefault(); // منع المتصفح من إعادة تحميل الصفحة عند الضغط
+        
         var text = studioChatInput.value.trim();
         if (!text) return;
+        
         var payload = { sender: "المذيع", text: text };
 
         fetch(SERVER_URL + '/api/messages', {
@@ -225,6 +230,8 @@ if (sendStudioChatBtn) {
         }).then(function() {
             studioChatInput.value = "";
             fetchChatFromServer(); 
+        }).catch(function(err) {
+            console.log("خطأ إرسال السيرفر:", err);
         });
     });
 }
@@ -242,7 +249,7 @@ function fetchChatFromServer() {
             studioChatMessages.appendChild(div);
         });
         studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-    });
+    }).catch(function(err) { console.log("خطأ جلب:", err); });
 }
 
 function fetchLikesFromServer() {
@@ -262,7 +269,7 @@ function fetchLikesFromServer() {
             tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
             tbody.appendChild(tr);
         });
-    });
+    }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
 }
 
 fetchChatFromServer();
