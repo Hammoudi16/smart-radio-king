@@ -25,14 +25,14 @@
         th { color: #00ebc7; }
         audio { width: 100%; margin-top: 15px; border-radius: 8px; background: #2a283e; }
 
-        /* تصفيف واجهة قفل الأمان المدمجة */
+        /* شاشة قفل الأمان المدمجة */
         #securityOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f0e17; display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .login-box { background: #1f1d2e; padding: 40px; border-radius: 12px; border: 1px solid #ff0055; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
     </style>
   </head>
   <body>
 
-    <!-- واجهة القفل المدمجة البديلة المضمونة الظهور في كافة الهواتف -->
+    <!-- واجهة القفل المدمجة -->
     <div id="securityOverlay">
         <div class="login-box">
             <h2 style="color: #ff0055; margin-top:0;">🔐 أمان استوديو كينج</h2>
@@ -42,8 +42,8 @@
         </div>
     </div>
 
-    <!-- واجهة الاستوديو الرئيسية (ستكون مخفية بالكامل حتى ينجح الدخول) -->
-    <div class="container" id="studioMainContent" style="display: none;">
+    <!-- واجهة الاستوديو الرئيسية (تم تحسين الاستجابة للظهور برمجياً) -->
+    <div class="container" id="studioMainContent" style="display: none !important;">
       <h1>🎙️ استوديو راديو كينج الذكي</h1>
 
       <div class="grid-layout">
@@ -124,10 +124,7 @@
       </div>
     </div>
 
-    <!-- قم بتغيير هذا السطر في أسفل ملف index.html ليكون بهذا الشكل تماماً -->
-
-<script src="studio.js"></script>
-
-
+    <!-- استدعاء ملف الاستوديو باسمه الجديد لكسر ذاكرة التخزين تماماً -->
+    <script src="studio.js"></script>
   </body>
 </html>
