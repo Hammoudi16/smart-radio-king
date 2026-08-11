@@ -31,33 +31,33 @@ window.addEventListener('DOMContentLoaded', function() {
             }
 
             fetch(SERVER_URL + '/api/verify-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pass })
-            })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    sessionStorage.setItem('studio_authenticated', 'true');
-                    if (overlay) overlay.style.display = "none";
-                    if (mainContent) mainContent.style.display = "block";
-                    initializeStudio();
-                } else {
-                    alert("كلمة المرور خاطئة! تم رفض دخولك.");
-                    window.location.href = "/artist.html";
-                }
-            })
-            .catch(function() {
-                // حل احتياطي محلي في حال تعطل الشبكة
-                if (pass === "123456") {
-                    sessionStorage.setItem('studio_authenticated', 'true');
-                    if (overlay) overlay.style.display = "none";
-                    if (mainContent) mainContent.style.display = "block";
-                    initializeStudio();
-                } else {
-                    window.location.href = "/artist.html";
-                }
-            });
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pass })
+})
+.then(function(res) { 
+    if (res.ok) {
+        sessionStorage.setItem('studio_authenticated', 'true');
+        if (overlay) overlay.style.display = "none";
+        if (mainContent) mainContent.style.display = "block";
+        initializeStudio();
+    } else {
+        alert("كلمة المرور خاطئة! تم رفض دخولك.");
+        window.location.href = "/artist.html";
+    }
+})
+.catch(function() {
+    // الحل الاحتياطي المحلي المباشر في حال تعطل الاستجابة عبر الشبكة
+    if (pass === "123456") {
+        sessionStorage.setItem('studio_authenticated', 'true');
+        if (overlay) overlay.style.display = "none";
+        if (mainContent) mainContent.style.display = "block";
+        initializeStudio();
+    } else {
+        window.location.href = "/artist.html";
+    }
+});
+
         };
     }
 });
