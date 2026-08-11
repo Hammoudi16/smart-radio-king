@@ -1,68 +1,73 @@
-var express = require('express')
-var fs = require('fs')
-var path = require('path')
-var app = express()
-var PORT = process.env.PORT || 3000
+var express = require('express');
+var fs = require('fs');
+var path = require('path');
+var multer = require('multer');
+var cors = require('cors');
 
-var subscribers = []
+var app = express();
+var PORT = process.env.PORT || 3000;
+
+var subscribers = [];
 var radioSchedule = [
     { day: 0, time: "20:00", file: "album1.mp3" }, 
     { day: 5, time: "22:00", file: "podcast_tunis.mp3" } 
-]
-var currentTrack = "default_music.mp3"
-var lastTriggeredMinute = ""
-var isMicLive = false 
+];
+var currentTrack = "default_music.mp3";
+var lastTriggeredMinute = "";
+var isMicLive = false; 
 
-var globalMessages = []
-var globalLikes = {}
+var globalMessages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي!" }];
+var globalLikes = {};
 
-var recDir = path.join(__dirname, 'recordings')
-var audioDir = path.join(__dirname, 'audio')
+var recDir = path.join(__dirname, 'recordings');
+var audioDir = path.join(__dirname, 'audio');
 
-if (!fs.existsSync(recDir)) { fs.mkdirSync(recDir) }
-if (!fs.existsSync(audioDir)) { fs.mkdirSync(audioDir) }
+if (!fs.existsSync(recDir)) { fs.mkdirSync(recDir); }
+if (!fs.existsSync(audioDir)) { fs.mkdirSync(audioDir); }
 
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    if (req.method === 'OPTIONS') { return res.status(200).end(); }
-    next();
+var storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, audioDir);
+    },
+    filename: function (req, file, cb) {
+        cb(null, 'album_' + Date.now() + path.extname(file.originalname));
+    }
 });
+var upload = multer({ storage: storage });
 
-app.use(express.json()) 
-app.use('/api/stream-mic', express.raw({ type: 'audio/mpeg', limit: '50mb' }))
-app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }))
-app.use('/api/upload-album', express.raw({ type: 'multipart/form-data', limit: '50mb' }))
+// إعدادات الـ CORS والـ Middlewares
+app.use(cors());
+app.use(express.json());
 
-app.get('/', function(req, res) { res.status(200).send("Radio King Active 24/7!"); })
+// استقبال الميكروفون بصيغته الخام المتوافقة مع الهواتف والمتصفحات
+app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
+app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }));
 
-// 💬 استقبال وحفظ رسائل الدردشة مع إجبار السيرفر على إعادتها بصيغة نصوص واضحة
+// تشغيل وتوجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public تلقائياً فور فتح الرابط
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 💬 استقبال وحفظ رسائل الدردشة
 app.post('/api/messages', function(req, res) {
     var text = req.body.text;
-    
-    // إذا أرسل الهاتف البيانات الخام، نقوم بفكها هنا
     if (!text && req.body) {
         text = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
-
     if (text) {
         globalMessages.push({
             sender: "المذيع",
-            text: String(text).replace('{"text":"', '').replace('"}', '').trim() // تنظيف النص
+            text: String(text).replace('{"text":"', '').replace('"}', '').trim()
         });
         if (globalMessages.length > 50) globalMessages.shift();
         
-        // إرسال رد النجاح الصريح للمتصفح لمنع تعليق الأزرار
         res.setHeader('Content-Type', 'application/json');
         return res.status(200).send(JSON.stringify({ status: "success" }));
     }
-    
     res.status(400).json({ error: "لا يوجد نص" });
 });
 
-app.get('/api/messages', function(req, res) { res.status(200).json(globalMessages); })
+app.get('/api/messages', function(req, res) { res.status(200).json(globalMessages); });
 
+// 👍 الإعجابات والتفاعلات
 app.post('/api/likes', function(req, res) {
     var data = req.body;
     if(data && data.track) {
@@ -71,22 +76,26 @@ app.post('/api/likes', function(req, res) {
         globalLikes[trackName]++;
     }
     res.status(200).json({ status: "success" });
-})
-
-app.get('/api/likes', function(req, res) { res.status(200).json(globalLikes); })
-
-app.post('/api/upload-album', function(req, res) {
-    var audioBuffer = req.body;
-    var filename = 'album_' + Date.now() + '.mp3';
-    
-    fs.writeFile(path.join(audioDir, filename), audioBuffer, function(err) {
-        if (err) return res.status(500).json({ error: "فشل حفظ الألبوم سحابياً" });
-        var now = new Date();
-        radioSchedule.push({ day: now.getDay(), time: lastTriggeredMinute, file: filename });
-        res.status(200).json({ status: "success", file: filename });
-    });
 });
 
+app.get('/api/likes', function(req, res) { res.status(200).json(globalLikes); });
+
+// 💾 رفع الألبومات وجدولتها تلقائياً
+app.post('/api/upload-album', upload.single('audioFile'), function(req, res) {
+    if (!req.file) {
+        return res.status(400).json({ error: "لم يتم استلام أي ملف صوتي" });
+    }
+    var filename = req.file.filename;
+    var now = new Date();
+    radioSchedule.push({ 
+        day: now.getDay(), 
+        time: (now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0')), 
+        file: filename 
+    });
+    res.status(200).json({ status: "success", file: filename });
+});
+
+// 🎤 بث الميكروفون المباشر للمستمعين
 app.post('/api/stream-mic', function(req, res) {
     isMicLive = true; 
     var audioBuffer = req.body;
@@ -94,9 +103,9 @@ app.post('/api/stream-mic', function(req, res) {
         try { subscribers[j].write(audioBuffer); } catch(e) {}
     }
     res.status(200).end();
-})
+});
 
-app.post('/api/stop-mic', function(req, res) { isMicLive = false; res.status(200).send({ status: "success" }); })
+app.post('/api/stop-mic', function(req, res) { isMicLive = false; res.status(200).send({ status: "success" }); });
 
 app.post('/api/archive', function(req, res) {
     var audioBuffer = req.body; 
@@ -105,49 +114,52 @@ app.post('/api/archive', function(req, res) {
         if (err) return res.status(500).send({ error: "فشل الأرشفة" });
         res.status(200).send({ status: "archived", file: filename });
     });
-})
+});
 
+// 📻 منفذ بث الراديو الحي المشترك المستمر للمستمعين
 app.get('/radio.mp3', function(req, res) {
     res.writeHead(200, { 
         'Content-Type': 'audio/mpeg', 
         'Connection': 'keep-alive', 
         'Transfer-Encoding': 'chunked',
         'Cache-Control': 'no-cache, no-store, must-revalidate'
-    })
-    subscribers.push(res)
-    req.on('close', function() { subscribers = subscribers.filter(function(sub) { return sub !== res }) })
-})
+    });
+    subscribers.push(res);
+    req.on('close', function() { subscribers = subscribers.filter(function(sub) { return sub !== res; }); });
+});
 
+// دالة بث الموسيقى التلقائية المستمرة عند غياب الميكروفون المباشر
 function broadcastAudio() {
     if (isMicLive) { setTimeout(broadcastAudio, 500); return; }
-    var trackPath = path.join(audioDir, currentTrack)
-    if (!fs.existsSync(trackPath)) { trackPath = path.join(audioDir, 'default_music.mp3') }
+    var trackPath = path.join(audioDir, currentTrack);
+    if (!fs.existsSync(trackPath)) { trackPath = path.join(audioDir, 'default_music.mp3'); }
     if (!fs.existsSync(trackPath)) { setTimeout(broadcastAudio, 1000); return; }
 
     var chunkSize = 4000; 
     var intervalTime = 250; 
-    var buffer = Buffer.alloc(chunkSize)
+    var buffer = Buffer.alloc(chunkSize);
     
     fs.open(trackPath, 'r', function(err, fd) {
         if (err) { setTimeout(broadcastAudio, 1000); return; }
         var offset = 0;
         
         function sendChunk() {
-            if (isMicLive) { fs.close(fd, function() { broadcastAudio() }); return; }
+            if (isMicLive) { fs.close(fd, function() { broadcastAudio(); }); return; }
             fs.read(fd, buffer, 0, chunkSize, offset, function(readErr, bytesRead) {
-                if (readErr || bytesRead === 0) { fs.close(fd, function() { broadcastAudio() }); return; }
-                offset += bytesRead
-                var activeChunk = bytesRead < chunkSize ? buffer.subarray(0, bytesRead) : buffer
+                if (readErr || bytesRead === 0) { fs.close(fd, function() { broadcastAudio(); }); return; }
+                offset += bytesRead;
+                var activeChunk = bytesRead < chunkSize ? buffer.subarray(0, bytesRead) : buffer;
                 for (var j = 0; j < subscribers.length; j++) { 
-                    try { subscribers[j].write(activeChunk) } catch(e) {}
+                    try { subscribers[j].write(activeChunk); } catch(e) {}
                 }
-                setTimeout(sendChunk, intervalTime)
-            })
+                setTimeout(sendChunk, intervalTime);
+            });
         }
-        sendChunk()
-    })
+        sendChunk();
+    });
 }
 
+// فحص الجدولة الزمنية كل ثانية
 setInterval(function() {
     var now = new Date(); 
     var currentDay = now.getDay();
@@ -162,7 +174,7 @@ setInterval(function() {
             break; 
         }
     }
-}, 1000)
+}, 1000);
 
-broadcastAudio()
-app.listen(PORT, function() { console.log("Server running on port " + PORT) })
+broadcastAudio();
+app.listen(PORT, function() { console.log("Server running on port " + PORT); });
