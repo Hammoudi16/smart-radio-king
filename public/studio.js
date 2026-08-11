@@ -52,16 +52,24 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 
   if (submitBtn) {
-    submitBtn.onclick = function() {
+    submitBtn.onclick = function(e) {
+      // تصحيح للهاتف: منع المتصفح من إعادة تحميل الصفحة فوراً عند الضغط
+      if (e) e.preventDefault(); 
+      
       var pass = passInput.value.trim();
       if (!pass) {
         alert("الرجاء كتابة كلمة المرور أولاً!");
-        return;
+        return false;
       }
+      
+      // التحقق المحلي السريع (يعمل مباشرة لكسر حظر السيرفر مؤقتاً)
       if (pass === "123456" || sessionStorage.getItem('studio_custom_pass') === pass) {
-        sessionStorage.setItem('studio_authenticated', 'true');
+        try {
+          sessionStorage.setItem('studio_authenticated', 'true');
+        } catch(err) { console.log("المتصفح يحظر التخزين، تأكد من استخدام رابط HTTPS"); }
         forceUnlockStudio();
       } else {
+        // محاولة التحقق عبر السيرفر
         fetch(SERVER_URL + '/api/verify-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -70,15 +78,23 @@ window.addEventListener('DOMContentLoaded', function() {
         .then(function(res) { return res.json(); })
         .then(function(data) {
             if (data.success) {
-                sessionStorage.setItem('studio_authenticated', 'true');
+                try {
+                  sessionStorage.setItem('studio_authenticated', 'true');
+                } catch(err) {}
                 forceUnlockStudio();
             } else {
                 alert("كلمة المرور خاطئة!");
             }
         })
-        .catch(function() { alert("خطأ في التحقق."); });
+        .catch(function(err) { 
+            console.log(err);
+            alert("خطأ في الاتصال، جرب كتابة 123456"); 
+        });
       }
+      return false;
     };
+  }
+
   }
 
   if (passInput) {
