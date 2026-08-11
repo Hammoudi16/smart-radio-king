@@ -5,7 +5,6 @@ var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
 
-// تحديد رابط السيرفر تلقائياً وبشكل ديناميكي لمنع مشاكل الحظر الأمني للمتصفحات
 var SERVER_URL = window.location.origin;
 
 var radioPlayer = document.getElementById('radioPlayer');
@@ -59,7 +58,6 @@ setInterval(function() {
     }
 }, 1000);
 
-// جلب دوري مستمر ومضمون للدردشة والتفاعلات من السيرفر كل 3 ثوانٍ
 setInterval(function() {
     fetchChatFromServer();
     fetchLikesFromServer();
@@ -96,7 +94,7 @@ if (saveSchedBtn) {
         })
         .catch(function(err) {
             console.log("فشل الرفع السحابي، تم الحفظ محلياً:", err);
-            alert("تم تفعيل وتثبيت الجدولة بنجاح!");
+            alert("تم تفعيل وتثبيت الجدولة بنجاح محلياً!");
             loadSavedTracks();
         });
     });
@@ -170,16 +168,21 @@ function startRecording(stream) {
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
     delayNode.connect(audioContext.destination);
-    source.connect(audioContext.destination);
+    source.connect(audioContext.destination); // ربط الصوت المحتجز للسماعات
 
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    var mimeType = 'audio/webm;codecs=opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/ogg;codecs=opus';
+    }
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
     mediaRecorder.ondataavailable = function(e) {
         if (e.data.size > 0) {
             fetch(SERVER_URL + '/api/stream-mic', {
                 method: 'POST',
-                headers: { 'Content-Type': 'audio/mpeg' },
+                headers: { 'Content-Type': mimeType },
                 body: e.data
-            });
+            }).catch(function(err) { console.log(err); });
         }
     };
     mediaRecorder.start(500); 
@@ -212,31 +215,20 @@ if (echoSlider) {
     });
 }
 
-// كود إرسال الدردشة الفوري والمحمي من التجميد في الهواتف
 if (sendStudioChatBtn) {
     sendStudioChatBtn.onclick = function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        
         var text = studioChatInput.value.trim();
         if (!text) return false;
-        
         studioChatInput.value = ""; 
 
         fetch(SERVER_URL + '/api/messages', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ text: text })
         })
-        .then(function() {
-            fetchChatFromServer(); 
-        })
-        .catch(function(err) {
-            console.log("فشل إرسال الرسالة:", err);
-        });
-
+        .then(function() { fetchChatFromServer(); })
+        .catch(function(err) { console.log("فشل إرسال الرسالة:", err); });
         return false;
     };
 }
@@ -247,14 +239,12 @@ function fetchChatFromServer() {
     .then(function(messages) {
         if (!studioChatMessages) return;
         studioChatMessages.innerHTML = "";
-        
         if (Array.isArray(messages)) {
             messages.forEach(function(msg) {
                 var div = document.createElement('div');
                 div.style.marginBottom = "5px";
                 var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
                 var senderContent = msg.sender ? msg.sender : "المذيع";
-                
                 div.innerHTML = `<b>${senderContent}:</b> ` + document.createTextNode(textContent).textContent;
                 studioChatMessages.appendChild(div);
             });
@@ -280,11 +270,8 @@ function fetchLikesFromServer() {
             tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
             tbody.appendChild(tr);
         });
-
-
-}).catch(function(err) { console.log("خطأ تفاعلات:", err); });
+    }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
 }
 
 fetchChatFromServer();
 fetchLikesFromServer();
-
