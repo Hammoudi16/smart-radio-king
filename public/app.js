@@ -1,21 +1,35 @@
+// تعريف المتغيرات العامة في النطاق الخارجي لتكون متاحة لكافة الدوال
+var db = null;
+var scheduledEvents = [];
+var mediaRecorder = null;
+var audioContext = null;
+var delayNode = null;
+var feedbackNode = null;
+var lastTriggeredMinute = "";
+
+var SERVER_URL = window.location.origin;
+
+// انتظار تحميل المتصفح لعناصر الصفحة بالكامل قبل تشغيل كود الأمان والتحكم
+window.onload = function() {
+    checkStudioSecurity();
+};
+
 // =========================================================================
-// 1️⃣ نظام الأمان والتحقق من الهوية قبل تفعيل الاستوديو واللوائح التجارية التلقائية
+// 1️⃣ نظام الأمان والتحقق من الهوية وحظر الواجهة حتى إدخال كلمة المرور
 // =========================================================================
 function checkStudioSecurity() {
-    // التحقق مما إذا كان المذيع قد سجل دخوله مسبقاً في هذه الجلسة لمنع إزعاجه عند تحديث الصفحة
     if (sessionStorage.getItem('studio_authenticated') === 'true') {
-        document.body.style.display = "block"; // إظهار الاستوديو
+        document.body.style.display = "block"; 
         initializeStudio();
         return;
     }
 
-    // إخفاء الواجهة تماماً قبل إدخال كلمة المرور لحمايتها من المتلصصين
     document.body.style.display = "none"; 
 
     var pass = prompt("الرجاء إدخال كلمة المرور السرية لدخول استوديو المذيع والقوائم التجارية التلقائية:");
     if (!pass) {
         alert("لا يمكن الدخول بدون كلمة مرور!");
-        window.location.href = "/artist.html"; // طرد المستخدم لصفحة المستمعين
+        window.location.href = "/artist.html"; 
         return;
     }
 
@@ -28,7 +42,7 @@ function checkStudioSecurity() {
     .then(function(data) {
         if (data.success) {
             sessionStorage.setItem('studio_authenticated', 'true');
-            document.body.style.display = "block"; // إظهار الاستوديو بعد النجاح
+            document.body.style.display = "block"; 
             initializeStudio();
         } else {
             alert("كلمة المرور خاطئة! تم رفض دخولك.");
@@ -41,12 +55,24 @@ function checkStudioSecurity() {
     });
 }
 
-// دالة تهيئة الاستوديو بعد إدخال كلمة المرور الصحيحة بنجاح
+// =========================================================================
+// 2️⃣ تهيئة الاستوديو، تشغيل العداد، وقاعدة البيانات المحلية بعد النجاح
+// =========================================================================
 function initializeStudio() {
+    var radioPlayer = document.getElementById('radioPlayer');
+    var clockEl = document.getElementById('clock');
+    var saveSchedBtn = document.getElementById('saveSchedBtn');
+    var startMicBtn = document.getElementById('startMicBtn');
+    var stopMicBtn = document.getElementById('stopMicBtn');
+    var volumeSlider = document.getElementById('volumeSlider');
+    var echoSlider = document.getElementById('echoSlider');
+    var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
+
     if (radioPlayer) {
         radioPlayer.src = SERVER_URL + "/radio.mp3";
     }
 
+    // فتح قاعدة البيانات المحلية للجداول الأسبوعية
     var request = indexedDB.open("RadioKingDB", 1);
     request.onupgradeneeded = function(e) {
         var database = e.target.result;
@@ -59,101 +85,134 @@ function initializeStudio() {
         db = e.target.result;
         loadSavedTracks();
     };
-}
 
-// =========================================================================
-// 2️⃣ المتغيرات العامة وإعدادات الروابط والواجهة
-// =========================================================================
-var db = null;
-var scheduledEvents = [];
-var mediaRecorder = null;
-var audioContext = null;
-var delayNode = null;
-var feedbackNode = null;
+    // تشغيل ساعة الاستوديو وفحص الجدولة كل ثانية بدقة
+    setInterval(function() {
+        var now = new Date();
+        if (clockEl) clockEl.innerText = now.toLocaleTimeString();
 
-var SERVER_URL = window.location.origin;
+        var currentDay = now.getDay();
+        var hours = now.getHours().toString().padStart(2, '0');
+        var minutes = now.getMinutes().toString().padStart(2, '0');
+        var currentTime = hours + ":" + minutes;
 
-var radioPlayer = document.getElementById('radioPlayer');
-var clockEl = document.getElementById('clock');
-var statusEl = document.getElementById('currentStatus');
-var saveSchedBtn = document.getElementById('saveSchedBtn');
-var startMicBtn = document.getElementById('startMicBtn');
-var stopMicBtn = document.getElementById('stopMicBtn');
-var volumeSlider = document.getElementById('volumeSlider');
-var echoSlider = document.getElementById('echoSlider');
-var studioChatMessages = document.getElementById('studioChatMessages');
-var studioChatInput = document.getElementById('studioChatInput');
-var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
+        if (currentTime === lastTriggeredMinute) return;
 
-// =========================================================================
-// 3️⃣ فحص التوقيت والجدولة الزمنية التلقائية للألبومات
-// =========================================================================
-var lastTriggeredMinute = "";
-setInterval(function() {
-    var now = new Date();
-    if (clockEl) clockEl.innerText = now.toLocaleTimeString();
-
-    var currentDay = now.getDay();
-    var hours = now.getHours().toString().padStart(2, '0');
-    var minutes = now.getMinutes().toString().padStart(2, '0');
-    var currentTime = hours + ":" + minutes;
-
-    if (currentTime === lastTriggeredMinute) return;
-
-    for (var i = 0; i < scheduledEvents.length; i++) {
-        var event = scheduledEvents[i];
-        if (event.day == currentDay && event.time == currentTime) {
-            lastTriggeredMinute = currentTime;
-            triggerAlbumPlay(event.day, event.time);
-            break;
+        for (var i = 0; i < scheduledEvents.length; i++) {
+            var event = scheduledEvents[i];
+            if (event.day == currentDay && event.time == currentTime) {
+                lastTriggeredMinute = currentTime;
+                triggerAlbumPlay(event.day, event.time);
+                break;
+            }
         }
-    }
-}, 1000);
+    }, 1000);
 
-// تحديث الشات والتفاعلات دورياً كل 3 ثوانٍ
-setInterval(function() {
+    // بدء الجلب الدوري للشات والتفاعلات من السيرفر كل 3 ثوانٍ
+    setInterval(function() {
+        fetchChatFromServer();
+        fetchLikesFromServer();
+    }, 3000);
+
+    // تفعيل أزرار التحكم ومستويات الصوت بعد التأكد من وجودها بالواجهة
+    if (saveSchedBtn) {
+        saveSchedBtn.addEventListener('click', function(e) {
+            if (e) e.preventDefault();
+            var files = document.getElementById('albumFiles').files;
+            var day = document.getElementById('schedDay').value;
+            var time = document.getElementById('schedTime').value;
+
+            if (files.length === 0 || !time) {
+                alert("يرجى تحديد ملفات صوتية واختيار الوقت أولاً!");
+                return;
+            }
+
+            var transaction = db.transaction(["tracks"], "readwrite");
+            var store = transaction.objectStore("tracks");
+            for (var j = 0; j < files.length; j++) {
+                store.add({ name: files[j].name, blob: files[j], day: day, time: time });
+            }
+
+            var formData = new FormData();
+            formData.append("audioFile", files[0]); 
+
+            fetch(SERVER_URL + '/api/upload-album', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function() {
+                alert("تم رفع الملف إلى السيرفر وتثبيت الجدولة بنجاح!");
+                loadSavedTracks();
+            })
+            .catch(function(err) {
+                console.log("فشل الرفع السحابي، تم الحفظ محلياً:", err);
+                alert("تم تفعيل وتثبيت الجدولة بنجاح محلياً!");
+                loadSavedTracks();
+            });
+        });
+    }
+
+    if (volumeSlider) {
+        volumeSlider.addEventListener('input', function(e) {
+            if (radioPlayer) radioPlayer.volume = e.target.value;
+        });
+    }
+
+    if (startMicBtn) {
+        startMicBtn.addEventListener('click', function(e) {
+            if (e) e.preventDefault();
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
+            }
+        });
+    }
+
+    if (stopMicBtn) {
+        stopMicBtn.addEventListener('click', function(e) {
+            if (e) e.preventDefault();
+            if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+            if (audioContext) audioContext.close();
+            var statusEl = document.getElementById('currentStatus');
+            if (statusEl) statusEl.innerText = "إستعداد";
+            startMicBtn.disabled = false;
+            stopMicBtn.disabled = true;
+            fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
+        });
+    }
+
+    if (echoSlider) {
+        echoSlider.addEventListener('input', function(e) {
+            if (feedbackNode) feedbackNode.gain.value = parseFloat(e.target.value);
+        });
+    }
+
+    if (sendStudioChatBtn) {
+        sendStudioChatBtn.onclick = function(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            var studioChatInput = document.getElementById('studioChatInput');
+            var text = studioChatInput.value.trim();
+            if (!text) return false;
+            studioChatInput.value = ""; 
+
+            fetch(SERVER_URL + '/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ text: text })
+            })
+            .then(function() { fetchChatFromServer(); })
+            .catch(function(err) { console.log("فشل إرسال الرسالة:", err); });
+            return false;
+        };
+    }
+
+    // جلب الشات والتفاعلات لأول مرة فور الدخول
     fetchChatFromServer();
     fetchLikesFromServer();
-}, 3000);
-
-// حفظ وتثبيت الجدولة التجارية التلقائية
-if (saveSchedBtn) {
-    saveSchedBtn.addEventListener('click', function(e) {
-        if (e) e.preventDefault();
-        var files = document.getElementById('albumFiles').files;
-        var day = document.getElementById('schedDay').value;
-        var time = document.getElementById('schedTime').value;
-
-        if (files.length === 0 || !time) {
-            alert("يرجى تحديد ملفات صوتية واختيار الوقت أولاً!");
-            return;
-        }
-
-        var transaction = db.transaction(["tracks"], "readwrite");
-        var store = transaction.objectStore("tracks");
-        for (var j = 0; j < files.length; j++) {
-            store.add({ name: files[j].name, blob: files[j], day: day, time: time });
-        }
-
-        var formData = new FormData();
-        formData.append("audioFile", files[0]); // رفع أول ملف كعينة للسيرفر
-
-        fetch(SERVER_URL + '/api/upload-album', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function() {
-            alert("تم رفع الملف إلى السيرفر وتثبيت الجدولة بنجاح!");
-            loadSavedTracks();
-        })
-        .catch(function(err) {
-            console.log("فشل الرفع السحابي، تم الحفظ محلياً:", err);
-            alert("تم تفعيل وتثبيت الجدولة بنجاح محلياً!");
-            loadSavedTracks();
-        });
-    });
 }
 
+// =========================================================================
+// 3️⃣ الدوال الفرعية المساعدة لإدارة الصوت، الميكروفون والشبكة
+// =========================================================================
 function loadSavedTracks() {
     if (!db) return;
     var transaction = db.transaction(["tracks"], "readonly");
@@ -175,6 +234,8 @@ function loadSavedTracks() {
 }
 
 function triggerAlbumPlay(day, time) {
+    var statusEl = document.getElementById('currentStatus');
+    var radioPlayer = document.getElementById('radioPlayer');
     if (statusEl) statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً...";
     var transaction = db.transaction(["tracks"], "readonly");
     var store = transaction.objectStore("tracks").index("schedKey").getAll([day, time]);
@@ -199,103 +260,52 @@ function triggerAlbumPlay(day, time) {
     };
 }
 
-if (volumeSlider) {
-    volumeSlider.addEventListener('input', function(e) {
-        if (radioPlayer) radioPlayer.volume = e.target.value;
-    });
-}
-
-// =========================================================================
-// 4️⃣ التحكم في دفق الميكروفون المباشر وتأثيرات الصدى (Echo)
-// =========================================================================
 function startRecording(stream) {
-    if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
-    startMicBtn.disabled = true;
-    stopMicBtn.disabled = false;
+    var statusEl = document.getElementById('currentStatus');
+    var startMicBtn = document.getElementById('startMicBtn');
 
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    var source = audioContext.createMediaStreamSource(stream);
-    delayNode = audioContext.createDelay();
-    feedbackNode = audioContext.createGain();
-    
-    delayNode.delayTime.value = 0.3;
-    feedbackNode.gain.value = echoSlider ? parseFloat(echoSlider.value) : 0;
-    
-    source.connect(delayNode);
-    delayNode.connect(feedbackNode);
-    feedbackNode.connect(delayNode);
-    delayNode.connect(audioContext.destination);
-    source.connect(audioContext.destination); // ربط الصوت الحي بالسماعات مباشرة لتجربة الفحص الحية
 
-    var mimeType = 'audio/webm;codecs=opus';
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/ogg;codecs=opus';
-    }
+var stopMicBtn = document.getElementById('stopMicBtn');
+var echoSlider = document.getElementById('echoSlider');
 
-    mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-    mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) {
-            fetch(SERVER_URL + '/api/stream-mic', {
-                method: 'POST',
-                headers: { 'Content-Type': mimeType },
-                body: e.data
-            }).catch(function(err) { console.log(err); });
-        }
-    };
-    mediaRecorder.start(500); 
+if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
+if (startMicBtn) startMicBtn.disabled = true;
+if (stopMicBtn) stopMicBtn.disabled = false;
+
+audioContext = new (window.AudioContext || window.webkitAudioContext)();
+var source = audioContext.createMediaStreamSource(stream);
+delayNode = audioContext.createDelay();
+feedbackNode = audioContext.createGain();
+
+delayNode.delayTime.value = 0.3;
+feedbackNode.gain.value = echoSlider ? parseFloat(echoSlider.value) : 0;
+
+source.connect(delayNode);
+delayNode.connect(feedbackNode);
+feedbackNode.connect(delayNode);
+delayNode.connect(audioContext.destination);
+source.connect(audioContext.destination);
+
+var mimeType = 'audio/webm;codecs=opus';
+if (!MediaRecorder.isTypeSupported(mimeType)) {
+mimeType = 'audio/ogg;codecs=opus';
 }
 
-if (startMicBtn) {
-    startMicBtn.addEventListener('click', function(e) {
-        if (e) e.preventDefault();
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
-        }
-    });
-}
-
-if (stopMicBtn) {
-    stopMicBtn.addEventListener('click', function(e) {
-        if (e) e.preventDefault();
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        if (audioContext) audioContext.close();
-        if (statusEl) statusEl.innerText = "إستعداد";
-        startMicBtn.disabled = false;
-        stopMicBtn.disabled = true;
-        fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
-    });
-}
-
-if (echoSlider) {
-    echoSlider.addEventListener('input', function(e) {
-.
-
-if (feedbackNode) feedbackNode.gain.value = parseFloat(e.target.value);
-});
-}
-
-// =========================================================================
-// 5️⃣ وظائف وإرسال الدردشة والرسائل الفورية وتحديث التفاعلات
-// =========================================================================
-if (sendStudioChatBtn) {
-sendStudioChatBtn.onclick = function(e) {
-if (e) { e.preventDefault(); e.stopPropagation(); }
-var text = studioChatInput.value.trim();
-if (!text) return false;
-studioChatInput.value = "";
-
-fetch(SERVER_URL + '/api/messages', {
+mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+mediaRecorder.ondataavailable = function(e) {
+if (e.data.size > 0) {
+fetch(SERVER_URL + '/api/stream-mic', {
 method: 'POST',
-headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-body: JSON.stringify({ text: text })
-})
-.then(function() { fetchChatFromServer(); })
-.catch(function(err) { console.log("فشل إرسال الرسالة:", err); });
-return false;
+headers: { 'Content-Type': mimeType },
+body: e.data
+}).catch(function(err) { console.log(err); });
+}
 };
+mediaRecorder.start(500);
 }
 
 function fetchChatFromServer() {
+var studioChatMessages = document.getElementById('studioChatMessages');
 fetch(SERVER_URL + '/api/messages')
 .then(function(res) { return res.json(); })
 .then(function(messages) {
@@ -316,10 +326,10 @@ studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
 }
 
 function fetchLikesFromServer() {
+var tbody = document.getElementById('likesTableBody');
 fetch(SERVER_URL + '/api/likes')
 .then(function(res) { return res.json(); })
 .then(function(likes) {
-var tbody = document.getElementById('likesTableBody');
 if (!tbody) return;
 tbody.innerHTML = "";
 var tracks = Object.keys(likes);
@@ -334,11 +344,3 @@ tbody.appendChild(tr);
 });
 }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
 }
-
-// =========================================================================
-// 6️⃣ تشغيل الفحص الأمني التلقائي فور تشغيل السكريبت وحظر الواجهة
-// =========================================================================
-checkStudioSecurity();
-fetchChatFromServer();
-fetchLikesFromServer();
-
