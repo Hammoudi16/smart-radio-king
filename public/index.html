@@ -20,10 +20,6 @@
         .chat-messages { height: 160px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
         .chat-input-row { display: flex; gap: 8px; }
         .chat-input { flex: 1; }
-        table { width: 100%; text-align: right; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; border-bottom: 1px solid #2a283e; }
-        th { color: #00ebc7; }
-        audio { width: 100%; margin-top: 15px; border-radius: 8px; background: #2a283e; }
         .jingle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .btn-jingle { background: #3a2856; border: 1px solid #ff0055; font-size: 13px; padding: 8px; }
         .btn-jingle:hover { background: #ff0055; }
@@ -33,7 +29,6 @@
   </head>
   <body>
 
-    <!-- شاشة قفل الأمان -->
     <div id="securityOverlay">
         <div class="login-box">
             <h2 style="color: #ff0055; margin-top:0;">🔐 أمان استوديو كينج</h2>
@@ -43,7 +38,6 @@
         </div>
     </div>
 
-    <!-- واجهة الاستوديو الرئيسية -->
     <div class="container" id="studioMainContent" style="display: none !important;">
       <h1>🎙️ استوديو راديو كينج الذكي</h1>
 
@@ -55,7 +49,6 @@
           <p>ساعة الاستوديو: <span id="clock">00:00:00</span></p>
           
           <audio id="radioPlayer" controls preload="auto"></audio>
-          
           <br><br>
           <label>🔊 مستوى صوت الألبومات:</label>
           <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
@@ -70,10 +63,9 @@
           <button id="stopMicBtn" disabled style="background: #4a475a;">إيقاف البث وحفظ الحلقة في الأرشيف</button>
         </div>
 
-        <!-- الميزة 5: لوحة الفواصل الإعلانية (Jingles) -->
         <div class="card">
           <h3>🌀 لوحة الفواصل والـ Jingles</h3>
-          <p style="font-size: 13px; color: #a7a6ba;">اضغط لقطع البث مؤقتاً وبث فاصل إذاعي سريع للمستمعين:</p>
+          <p style="font-size: 13px; color: #a7a6ba;">اضغط لبث فاصل إذاعي سريع من السيرفر للمستمعين:</p>
           <div class="jingle-grid">
              <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle1.mp3')">🎵 فاصل الغناء الإذاعي</button>
              <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle2.mp3')">📢 إعلان تجاري قصير</button>
@@ -91,7 +83,6 @@
           </div>
         </div>
 
-        <!-- الميزة 6: التحكم في كلمة المرور من المتصفح -->
         <div class="card">
           <h3>🔄 إدارة الحماية والأمان</h3>
           <p style="font-size: 13px; color: #a7a6ba;">تحديث رمز الدخول السري للاستوديو أونلاين على السيرفر:</p>
