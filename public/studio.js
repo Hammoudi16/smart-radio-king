@@ -1,4 +1,3 @@
-// 🚨 مكتشف الأخطاء التلقائي للهواتف - سيعلمك فوراً إذا كان هناك أي مشكلة في المتصفح
 window.onerror = function(msg, url, line) {
     alert("خطأ برمي في الاستوديو: " + msg + "\nالسطر: " + line);
     return false;
@@ -11,7 +10,6 @@ var audioContext = null;
 var lastTriggeredMinute = "";
 var SERVER_URL = window.location.origin; 
 
-// دالة جلب شات الاستوديو
 function fetchChatFromServer() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (!studioChatMessages) return;
@@ -34,7 +32,6 @@ function fetchChatFromServer() {
     }).catch(function(err) { console.log(err); });
 }
 
-// دالة إلغاء قفل الاستوديو وإظهار المحتوى
 function forceUnlockStudio() {
     var overlay = document.getElementById('securityOverlay');
     var mainContent = document.getElementById('studioMainContent');
@@ -46,12 +43,10 @@ function forceUnlockStudio() {
     initializeStudio();
 }
 
-// انتهاء تحميل الصفحة وإعداد أزرار الدخول
 window.addEventListener('DOMContentLoaded', function() {
     var submitBtn = document.getElementById('submitPassBtn');
     var passInput = document.getElementById('studioPassInput'); 
 
-    // إذا كان المذيع مسجل دخوله سابقاً
     if (sessionStorage.getItem('studio_authenticated') === 'true') {
         forceUnlockStudio();
         return;
@@ -60,19 +55,15 @@ window.addEventListener('DOMContentLoaded', function() {
     if (submitBtn) {
         submitBtn.onclick = function(e) {
             if (e) e.preventDefault(); 
-            
             var pass = passInput ? passInput.value.trim() : "";
             if (!pass) {
                 alert("الرجاء كتابة كلمة المرور أولاً!");
                 return false;
             }
-            
-            // تحقق محلي سريع ومباشر لتفادي أي حظر من المتصفح
             if (pass === "123456" || sessionStorage.getItem('studio_custom_pass') === pass) {
                 try { sessionStorage.setItem('studio_authenticated', 'true'); } catch(err) {}
                 forceUnlockStudio();
             } else {
-                // التحقق من السيرفر
                 fetch(SERVER_URL + '/api/verify-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -88,7 +79,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(function() {
-                    alert("فشل الاتصال بالسيرفر! جرب الرمز الافتراضي: 123456");
+                    alert("فشل الاتصال! جرب الرمز الافتراضي: 123456");
                 });
             }
             return false;
@@ -102,7 +93,22 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 }); 
 
-// دالة تشغيل الفواصل والـ Jingles
+// الميزة 4: دالة إصدار تأثير صوت التنبيه الخفيف المباشر وإرساله داخل دفق البث للمستمعين
+function playStudioAlertSound() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 750; // تردد رنة الراديو
+    gain.gain.value = 0.08; 
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.20); // مدة التنبيه
+  } catch(e) {}
+}
+
 function playStudioJingle(url) {
   var radioPlayer = document.getElementById('radioPlayer');
   var statusEl = document.getElementById('currentStatus');
@@ -110,7 +116,7 @@ function playStudioJingle(url) {
     if (statusEl) statusEl.innerText = "جاري بث فاصل إعلاني إذاعي الآن... 🌀";
     radioPlayer.src = url;
     radioPlayer.play().catch(function() {
-        console.log("المنصات تحظر التشغيل التلقائي محلياً لكن البث مستمر.");
+        console.log("التشغيل التلقائي محجوب محلياً لكن الدفق مستمر.");
     });
     radioPlayer.onended = function() {
       if (statusEl) statusEl.innerText = "إستعداد";
@@ -120,7 +126,6 @@ function playStudioJingle(url) {
   }
 }
 
-// تهيئة عناصر الاستوديو بعد فتح القفل
 function initializeStudio() {
   var radioPlayer = document.getElementById('radioPlayer');
   var clockEl = document.getElementById('clock');
@@ -231,7 +236,6 @@ function initializeStudio() {
     stopMicBtn.addEventListener('click', function(e) {
       if (e) e.preventDefault();
       if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-      if (audioContext) audioContext.close();
       var statusEl = document.getElementById('currentStatus');
       if (statusEl) statusEl.innerText = "إستعداد";
       if (startMicBtn) startMicBtn.disabled = false;
@@ -266,65 +270,3 @@ function loadSavedTracks() {
   var transaction = db.transaction(["tracks"], "readonly");
   var store = transaction.objectStore("tracks");
   scheduledEvents = [];
-
-var uniqueKeys = new Set();
-store.openCursor().onsuccess = function(e) {
-var cursor = e.target.result;
-if (cursor) {
-var key = cursor.value.day + "_" + cursor.value.time;
-if (!uniqueKeys.has(key)) {
-uniqueKeys.add(key);
-scheduledEvents.push({ day: cursor.value.day, time: cursor.value.time });
-}
-cursor.continue();
-}
-};
-}
-
-function triggerAlbumPlay(day, time) {
-var statusEl = document.getElementById('currentStatus');
-var radioPlayer = document.getElementById('radioPlayer');
-if (statusEl) statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً...";
-var transaction = db.transaction(["tracks"], "readonly");
-var store = transaction.objectStore("tracks").index("schedKey").getAll([day, time]);
-
-store.onsuccess = function(e) {
-var tracks = e.target.result;
-if (tracks.length === 0) return;
-var trackIndex = 0;
-function playNext() {
-if (trackIndex < tracks.length) {
-var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
-radioPlayer.src = fileURL;
-radioPlayer.play().catch(function() { trackIndex++; playNext(); });
-radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); };
-} else {
-if (statusEl) statusEl.innerText = "إستعداد";
-radioPlayer.src = SERVER_URL + "/radio.mp3";
-}
-}
-playNext();
-};
-}
-
-function startRecording(stream) {
-var startMicBtn = document.getElementById('startMicBtn');
-var stopMicBtn = document.getElementById('stopMicBtn');
-var statusEl = document.getElementById('currentStatus');
-
-if (startMicBtn) startMicBtn.disabled = true;
-if (stopMicBtn) stopMicBtn.disabled = false;
-if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
-
-var mimeType = 'audio/webm;codecs=opus';
-if (!MediaRecorder.isTypeSupported(mimeType)) { mimeType = 'audio/ogg;codecs=opus'; }
-
-mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-mediaRecorder.ondataavailable = function(e) {
-if (e.data.size > 0) {
-fetch(SERVER_URL + '/api/stream-mic', { method: 'POST', headers: { 'Content-Type': mimeType }, body: e.data });
-}
-};
-mediaRecorder.start(250);
-}
-
