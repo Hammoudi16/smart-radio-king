@@ -24,7 +24,6 @@
     </style>
 </head>
 <body>
-
     <div class="container">
         <h1>👨‍🎤 لوحة تحكم الفنان</h1>
         <div class="sub-title">إدارة الأغاني، رفع التراكات ومتابعة الإعجابات الحية من المستمعين</div>
@@ -63,12 +62,10 @@
             .then(function(tracks) {
                 if (!trackList) return;
                 trackList.innerHTML = "";
-                
                 if (!Array.isArray(tracks) || tracks.length === 0) {
                     trackList.innerHTML = `<li style="color: #a7a6ba; text-align: center; padding: 15px;">لم تقم برفع أي أعمال فنية بعد.</li>`;
                     return;
                 }
-
                 tracks.forEach(function(track) {
                     var li = document.createElement('li');
                     li.className = "track-item";
@@ -80,7 +77,7 @@
                     trackList.appendChild(li);
                 });
             })
-            .catch(function(err) { 
+            .catch(function() {
                 trackList.innerHTML = `<li style="color: #ff0055; text-align: center; padding: 15px;">فشل تحديث البيانات الفنية.</li>`;
             });
         }
@@ -92,26 +89,32 @@
                 var fileInput = document.getElementById('trackFile');
                 
                 if (!fileInput.files || fileInput.files.length === 0) {
-                    alert("الرجاء اختيار ملف صوتي أولاً!");
+                    alert("الرجاء اختيار ملف صوتی أولاً!");
                     return false;
                 }
 
                 var formData = new FormData();
                 formData.append("title", titleInput.value.trim());
-                formData.append("audioTrack", fileInput.files[0]); // تصحيح إرسال الملف الفردي عبر multer
+                // تصحيح الخطأ البرمجي هنا: إرسال الملف الأول المباشر من مصفوفة الإدخال ليتعرف عليه الـ Multer بالسيرفر
+                formData.append("audioTrack", fileInput.files[0]); 
 
                 fetch(SERVER_URL + '/api/upload-artist-track', {
                     method: 'POST',
                     body: formData
                 })
-                .then(res => res.json())
-                .then(() => {
+                .then(function(res) {
+                    if(!res.ok) throw new Error("رفع غير صالح");
+                    return res.json();
+                })
+                .then(function() {
                     alert("تم رفع العمل الفني بنجاح!");
                     titleInput.value = "";
                     fileInput.value = "";
                     loadArtistTracks();
                 })
-                .catch(() => alert("حدث خطأ أثناء رفع الملف للسيرفر."));
+                .catch(function() {
+                    alert("حدث خطأ أثناء رفع الملف للسيرفر.");
+                });
                 return false;
             };
         }
