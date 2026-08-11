@@ -1,14 +1,17 @@
+// 🚨 مكتشف الأخطاء التلقائي للهواتف - سيعلمك فوراً إذا كان هناك أي مشكلة في المتصفح
+window.onerror = function(msg, url, line) {
+    alert("خطأ برمي في الاستوديو: " + msg + "\nالسطر: " + line);
+    return false;
+};
+
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
 var audioContext = null;
-var delayNode = null;
-var feedbackNode = null;
 var lastTriggeredMinute = "";
-
 var SERVER_URL = window.location.origin; 
 
-// دالة جلب الشات وعرضه في صندوق دردشة الاستوديو (تم إضافتها وتصحيحها)
+// دالة جلب شات الاستوديو
 function fetchChatFromServer() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (!studioChatMessages) return;
@@ -21,89 +24,85 @@ function fetchChatFromServer() {
             messages.forEach(function(msg) {
                 var div = document.createElement('div');
                 div.style.marginBottom = "8px";
-                div.style.textAlign = "right"; // محاذاة النص لليمين للغة العربية
+                div.style.textAlign = "right";
                 var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
                 div.innerHTML = `<b style="color: ${color}">${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
                 studioChatMessages.appendChild(div);
             });
         }
         studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-    }).catch(function(err) { console.log("خطأ جلب شات الاستوديو:", err); });
+    }).catch(function(err) { console.log(err); });
 }
 
-window.addEventListener('DOMContentLoaded', function() {
-  var overlay = document.getElementById('securityOverlay');
-  var mainContent = document.getElementById('studioMainContent');
-  var submitBtn = document.getElementById('submitPassBtn');
-  var passInput = document.getElementById('studioPassInput'); 
-
-  function forceUnlockStudio() {
+// دالة إلغاء قفل الاستوديو وإظهار المحتوى
+function forceUnlockStudio() {
+    var overlay = document.getElementById('securityOverlay');
+    var mainContent = document.getElementById('studioMainContent');
     if (overlay) overlay.style.setProperty("display", "none", "important");
     if (mainContent) {
-      mainContent.style.setProperty("display", "block", "important");
-      mainContent.setAttribute("style", "display: block !important;");
+        mainContent.style.setProperty("display", "block", "important");
+        mainContent.setAttribute("style", "display: block !important;");
     }
     initializeStudio();
-  }
+}
 
-  if (sessionStorage.getItem('studio_authenticated') === 'true') {
-    forceUnlockStudio();
-    return;
-  }
+// انتهاء تحميل الصفحة وإعداد أزرار الدخول
+window.addEventListener('DOMContentLoaded', function() {
+    var submitBtn = document.getElementById('submitPassBtn');
+    var passInput = document.getElementById('studioPassInput'); 
 
-  if (submitBtn) {
-    submitBtn.onclick = function(e) {
-      // تصحيح للهاتف: منع المتصفح من إعادة تحميل الصفحة فوراً عند الضغط
-      if (e) e.preventDefault(); 
-      
-      var pass = passInput.value.trim();
-      if (!pass) {
-        alert("الرجاء كتابة كلمة المرور أولاً!");
-        return false;
-      }
-      
-      // التحقق المحلي السريع (يعمل مباشرة لكسر حظر السيرفر مؤقتاً)
-      if (pass === "123456" || sessionStorage.getItem('studio_custom_pass') === pass) {
-        try {
-          sessionStorage.setItem('studio_authenticated', 'true');
-        } catch(err) { console.log("المتصفح يحظر التخزين، تأكد من استخدام رابط HTTPS"); }
+    // إذا كان المذيع مسجل دخوله سابقاً
+    if (sessionStorage.getItem('studio_authenticated') === 'true') {
         forceUnlockStudio();
-      } else {
-        // محاولة التحقق عبر السيرفر
-        fetch(SERVER_URL + '/api/verify-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pass })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data.success) {
-                try {
-                  sessionStorage.setItem('studio_authenticated', 'true');
-                } catch(err) {}
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.onclick = function(e) {
+            if (e) e.preventDefault(); 
+            
+            var pass = passInput ? passInput.value.trim() : "";
+            if (!pass) {
+                alert("الرجاء كتابة كلمة المرور أولاً!");
+                return false;
+            }
+            
+            // تحقق محلي سريع ومباشر لتفادي أي حظر من المتصفح
+            if (pass === "123456" || sessionStorage.getItem('studio_custom_pass') === pass) {
+                try { sessionStorage.setItem('studio_authenticated', 'true'); } catch(err) {}
                 forceUnlockStudio();
             } else {
-                alert("كلمة المرور خاطئة!");
+                // التحقق من السيرفر
+                fetch(SERVER_URL + '/api/verify-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        try { sessionStorage.setItem('studio_authenticated', 'true'); } catch(err) {}
+                        forceUnlockStudio();
+                    } else {
+                        alert("كلمة المرور خاطئة!");
+                    }
+                })
+                .catch(function() {
+                    alert("فشل الاتصال بالسيرفر! جرب الرمز الافتراضي: 123456");
+                });
             }
-        })
-        .catch(function(err) { 
-            console.log(err);
-            alert("خطأ في الاتصال، جرب كتابة 123456"); 
+            return false;
+        };
+    }
+
+    if (passInput) {
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && submitBtn) submitBtn.click();
         });
-      }
-      return false;
-    };
-  }
-
-  }
-
-  if (passInput) {
-    passInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') submitBtn.click();
-    });
-  }
+    }
 }); 
 
+// دالة تشغيل الفواصل والـ Jingles
 function playStudioJingle(url) {
   var radioPlayer = document.getElementById('radioPlayer');
   var statusEl = document.getElementById('currentStatus');
@@ -111,7 +110,7 @@ function playStudioJingle(url) {
     if (statusEl) statusEl.innerText = "جاري بث فاصل إعلاني إذاعي الآن... 🌀";
     radioPlayer.src = url;
     radioPlayer.play().catch(function() {
-        console.log("تم كتم التشغيل التلقائي محلياً لكن البث مستمر للمستمعين.");
+        console.log("المنصات تحظر التشغيل التلقائي محلياً لكن البث مستمر.");
     });
     radioPlayer.onended = function() {
       if (statusEl) statusEl.innerText = "إستعداد";
@@ -121,6 +120,7 @@ function playStudioJingle(url) {
   }
 }
 
+// تهيئة عناصر الاستوديو بعد فتح القفل
 function initializeStudio() {
   var radioPlayer = document.getElementById('radioPlayer');
   var clockEl = document.getElementById('clock');
@@ -128,7 +128,6 @@ function initializeStudio() {
   var startMicBtn = document.getElementById('startMicBtn');
   var stopMicBtn = document.getElementById('stopMicBtn');
   var volumeSlider = document.getElementById('volumeSlider');
-  var echoSlider = document.getElementById('echoSlider');
   var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
   var changePassBtn = document.getElementById('changePassBtn');
 
@@ -181,10 +180,8 @@ function initializeStudio() {
     }
   }, 1000);
 
-  // تحديث دوري مستمر لعداد المتصلين وللرسائل كل 3 ثوانٍ
   setInterval(function() {
-    fetchChatFromServer(); // تحديث صندوق شات المذيع تلقائياً
-
+    fetchChatFromServer();
     fetch(SERVER_URL + '/api/listeners-count')
     .then(function(res) { return res.json(); })
     .then(function(data) {
@@ -208,16 +205,8 @@ function initializeStudio() {
       for (var j = 0; j < files.length; j++) {
           store.add({ name: files[j].name, blob: files[j], day: day, time: time });
       }
-      var formData = new FormData();
-      formData.append("audioFile", files); 
-
-      fetch(SERVER_URL + '/api/upload-album', { method: 'POST', body: formData })
-      .then(function() {
-          alert("تم حفظ وتثبيت الجدولة بنجاح محلياً!");
-          loadSavedTracks();
-      }).catch(function() {
-          loadSavedTracks();
-      });
+      loadSavedTracks();
+      alert("تم جدولة الألبوم محلياً بنجاح!");
     });
   }
 
@@ -233,7 +222,7 @@ function initializeStudio() {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
       } else {
-        alert("الميكروفون غير مدعوم! تأكد من استخدام رابط https:// آمن.");
+        alert("الميكروفون غير مدعوم أو الرابط غير آمن (تأكد من وجود https://)");
       }
     });
   }
@@ -245,15 +234,15 @@ function initializeStudio() {
       if (audioContext) audioContext.close();
       var statusEl = document.getElementById('currentStatus');
       if (statusEl) statusEl.innerText = "إستعداد";
-      startMicBtn.disabled = false;
-      stopMicBtn.disabled = true;
+      if (startMicBtn) startMicBtn.disabled = false;
+      if (stopMicBtn) stopMicBtn.disabled = true;
       fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
     });
   }
 
   if (sendStudioChatBtn) {
     sendStudioChatBtn.onclick = function(e) {
-      if (e) { e.preventDefault(); }
+      if (e) e.preventDefault();
       var studioChatInput = document.getElementById('studioChatInput');
       var text = studioChatInput.value.trim();
       if (!text) return false;
@@ -264,14 +253,11 @@ function initializeStudio() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender: "المذيع", text: text })
       })
-      .then(function() {
-          fetchChatFromServer(); // جلب الشات فوراً بعد الإرسال لتظهر عند المذيع مباشرة
-      });
+      .then(function() { fetchChatFromServer(); });
       return false;
     };
   }
 
-  // جلب أول تحميل للرسائل عند فتح الواجهة مباشرة
   fetchChatFromServer();
 }
 
@@ -280,65 +266,65 @@ function loadSavedTracks() {
   var transaction = db.transaction(["tracks"], "readonly");
   var store = transaction.objectStore("tracks");
   scheduledEvents = [];
-  var uniqueKeys = new Set();
-  store.openCursor().onsuccess = function(e) {
-    var cursor = e.target.result;
-    if (cursor) {
-      var key = cursor.value.day + "_" + cursor.value.time;
-      if (!uniqueKeys.has(key)) {
-        uniqueKeys.add(key);
-        scheduledEvents.push({ day: cursor.value.day, time: cursor.value.time });
-      }
-cursor.continue(); 
-} 
-}; 
+
+var uniqueKeys = new Set();
+store.openCursor().onsuccess = function(e) {
+var cursor = e.target.result;
+if (cursor) {
+var key = cursor.value.day + "_" + cursor.value.time;
+if (!uniqueKeys.has(key)) {
+uniqueKeys.add(key);
+scheduledEvents.push({ day: cursor.value.day, time: cursor.value.time });
+}
+cursor.continue();
+}
+};
 }
 
-دالة TriggerAlbumPlay(day, time) { 
-varstatusEl = document.getElementById('currentStatus'); 
-var radioPlayer = document.getElementById('radioPlayer'); 
-if (statusEl)statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً..."; 
-معاملة var = db.transaction(["tracks"], "readonly"); 
-var store = treatment.objectStore("tracks").index("schedKey").getAll([day, time]);
+function triggerAlbumPlay(day, time) {
+var statusEl = document.getElementById('currentStatus');
+var radioPlayer = document.getElementById('radioPlayer');
+if (statusEl) statusEl.innerText = "جاري بث الألبوم المجدول أسبوعياً...";
+var transaction = db.transaction(["tracks"], "readonly");
+var store = transaction.objectStore("tracks").index("schedKey").getAll([day, time]);
 
-store.onsuccess = function(e) { 
-var tracks = e.target.result; 
-if (tracks.length === 0) return; 
-var trackIndex = 0; 
-function playNext() { 
-if (trackIndex < tracks.length) { 
-var fileURL = URL.createObjectURL(tracks[trackIndex].blob); 
-radioPlayer.src = fileURL; 
-radioPlayer.play().catch(function() { trackIndex++; playNext(); }); 
-radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); }; 
-} else { 
-if (statusEl) statusEl.innerText = "انتهى"; 
-radioPlayer.src = SERVER_URL + "/radio.mp3"; 
-} 
-} 
-playNext(); 
-}; 
+store.onsuccess = function(e) {
+var tracks = e.target.result;
+if (tracks.length === 0) return;
+var trackIndex = 0;
+function playNext() {
+if (trackIndex < tracks.length) {
+var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
+radioPlayer.src = fileURL;
+radioPlayer.play().catch(function() { trackIndex++; playNext(); });
+radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); };
+} else {
+if (statusEl) statusEl.innerText = "إستعداد";
+radioPlayer.src = SERVER_URL + "/radio.mp3";
+}
+}
+playNext();
+};
 }
 
-وظيفة startRecording(stream) { 
-var startMicBtn = document.getElementById('startMicBtn'); 
-var stopMicBtn = document.getElementById('stopMicBtn'); 
-var StatusEl = document.getElementById('currentStatus');
+function startRecording(stream) {
+var startMicBtn = document.getElementById('startMicBtn');
+var stopMicBtn = document.getElementById('stopMicBtn');
+var statusEl = document.getElementById('currentStatus');
 
-إذا (startMicBtn) startMicBtn.disabled = true؛ 
-إذا (stopMicBtn) stopMicBtn.disabled = false؛ 
-if (statusEl)statusEl.innerText = "🔴 الميكروفون المباشر النشط حاليًا...";
+if (startMicBtn) startMicBtn.disabled = true;
+if (stopMicBtn) stopMicBtn.disabled = false;
+if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
 
-var mimeType = 'audio/webm;codecs=opus'; 
+var mimeType = 'audio/webm;codecs=opus';
 if (!MediaRecorder.isTypeSupported(mimeType)) { mimeType = 'audio/ogg;codecs=opus'; }
 
-mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType }); 
-mediaRecorder.ondataavailable = function(e) { 
-if (e.data.size > 0) { 
-fetch(SERVER_URL + '/api/stream-mic', { method: 'POST', headers: { 'Content-Type': mimeType }, body: e.data }); 
-} 
-}; 
-mediaRecorder.start(250); 
+mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+mediaRecorder.ondataavailable = function(e) {
+if (e.data.size > 0) {
+fetch(SERVER_URL + '/api/stream-mic', { method: 'POST', headers: { 'Content-Type': mimeType }, body: e.data });
 }
-
+};
+mediaRecorder.start(250);
+}
 
