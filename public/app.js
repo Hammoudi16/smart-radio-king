@@ -1,3 +1,69 @@
+// =========================================================================
+// 1️⃣ نظام الأمان والتحقق من الهوية قبل تفعيل الاستوديو واللوائح التجارية التلقائية
+// =========================================================================
+function checkStudioSecurity() {
+    // التحقق مما إذا كان المذيع قد سجل دخوله مسبقاً في هذه الجلسة لمنع إزعاجه عند تحديث الصفحة
+    if (sessionStorage.getItem('studio_authenticated') === 'true') {
+        document.body.style.display = "block"; // إظهار الاستوديو
+        initializeStudio();
+        return;
+    }
+
+    // إخفاء الواجهة تماماً قبل إدخال كلمة المرور لحمايتها من المتلصصين
+    document.body.style.display = "none"; 
+
+    var pass = prompt("الرجاء إدخال كلمة المرور السرية لدخول استوديو المذيع والقوائم التجارية التلقائية:");
+    if (!pass) {
+        alert("لا يمكن الدخول بدون كلمة مرور!");
+        window.location.href = "/artist.html"; // طرد المستخدم لصفحة المستمعين
+        return;
+    }
+
+    fetch(window.location.origin + '/api/verify-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            sessionStorage.setItem('studio_authenticated', 'true');
+            document.body.style.display = "block"; // إظهار الاستوديو بعد النجاح
+            initializeStudio();
+        } else {
+            alert("كلمة المرور خاطئة! تم رفض دخولك.");
+            window.location.href = "/artist.html";
+        }
+    })
+    .catch(function() {
+        alert("خطأ في الاتصال بخادم الأمان.");
+        window.location.href = "/artist.html";
+    });
+}
+
+// دالة تهيئة الاستوديو بعد إدخال كلمة المرور الصحيحة بنجاح
+function initializeStudio() {
+    if (radioPlayer) {
+        radioPlayer.src = SERVER_URL + "/radio.mp3";
+    }
+
+    var request = indexedDB.open("RadioKingDB", 1);
+    request.onupgradeneeded = function(e) {
+        var database = e.target.result;
+        if (!database.objectStoreNames.contains("tracks")) {
+            var store = database.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+            store.createIndex("schedKey", ["day", "time"], { unique: false });
+        }
+    };
+    request.onsuccess = function(e) {
+        db = e.target.result;
+        loadSavedTracks();
+    };
+}
+
+// =========================================================================
+// 2️⃣ المتغيرات العامة وإعدادات الروابط والواجهة
+// =========================================================================
 var db = null;
 var scheduledEvents = [];
 var mediaRecorder = null;
@@ -19,23 +85,9 @@ var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
-if (radioPlayer) {
-    radioPlayer.src = SERVER_URL + "/radio.mp3";
-}
-
-var request = indexedDB.open("RadioKingDB", 1);
-request.onupgradeneeded = function(e) {
-    var database = e.target.result;
-    if (!database.objectStoreNames.contains("tracks")) {
-        var store = database.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
-        store.createIndex("schedKey", ["day", "time"], { unique: false });
-    }
-};
-request.onsuccess = function(e) {
-    db = e.target.result;
-    loadSavedTracks();
-};
-
+// =========================================================================
+// 3️⃣ فحص التوقيت والجدولة الزمنية التلقائية للألبومات
+// =========================================================================
 var lastTriggeredMinute = "";
 setInterval(function() {
     var now = new Date();
@@ -58,11 +110,13 @@ setInterval(function() {
     }
 }, 1000);
 
+// تحديث الشات والتفاعلات دورياً كل 3 ثوانٍ
 setInterval(function() {
     fetchChatFromServer();
     fetchLikesFromServer();
 }, 3000);
 
+// حفظ وتثبيت الجدولة التجارية التلقائية
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function(e) {
         if (e) e.preventDefault();
@@ -82,7 +136,7 @@ if (saveSchedBtn) {
         }
 
         var formData = new FormData();
-        formData.append("audioFile", files[0]); 
+        formData.append("audioFile", files[0]); // رفع أول ملف كعينة للسيرفر
 
         fetch(SERVER_URL + '/api/upload-album', {
             method: 'POST',
@@ -151,6 +205,9 @@ if (volumeSlider) {
     });
 }
 
+// =========================================================================
+// 4️⃣ التحكم في دفق الميكروفون المباشر وتأثيرات الصدى (Echo)
+// =========================================================================
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
     startMicBtn.disabled = true;
@@ -168,7 +225,7 @@ function startRecording(stream) {
     delayNode.connect(feedbackNode);
     feedbackNode.connect(delayNode);
     delayNode.connect(audioContext.destination);
-    source.connect(audioContext.destination); // ربط الصوت المحتجز للسماعات
+    source.connect(audioContext.destination); // ربط الصوت الحي بالسماعات مباشرة لتجربة الفحص الحية
 
     var mimeType = 'audio/webm;codecs=opus';
     if (!MediaRecorder.isTypeSupported(mimeType)) {
@@ -211,67 +268,77 @@ if (stopMicBtn) {
 
 if (echoSlider) {
     echoSlider.addEventListener('input', function(e) {
-        if (feedbackNode) feedbackNode.gain.value = parseFloat(e.target.value);
-    });
+.
+
+if (feedbackNode) feedbackNode.gain.value = parseFloat(e.target.value);
+});
 }
 
+// =========================================================================
+// 5️⃣ وظائف وإرسال الدردشة والرسائل الفورية وتحديث التفاعلات
+// =========================================================================
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.onclick = function(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        var text = studioChatInput.value.trim();
-        if (!text) return false;
-        studioChatInput.value = ""; 
+sendStudioChatBtn.onclick = function(e) {
+if (e) { e.preventDefault(); e.stopPropagation(); }
+var text = studioChatInput.value.trim();
+if (!text) return false;
+studioChatInput.value = "";
 
-        fetch(SERVER_URL + '/api/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ text: text })
-        })
-        .then(function() { fetchChatFromServer(); })
-        .catch(function(err) { console.log("فشل إرسال الرسالة:", err); });
-        return false;
-    };
+fetch(SERVER_URL + '/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+body: JSON.stringify({ text: text })
+})
+.then(function() { fetchChatFromServer(); })
+.catch(function(err) { console.log("فشل إرسال الرسالة:", err); });
+return false;
+};
 }
 
 function fetchChatFromServer() {
-    fetch(SERVER_URL + '/api/messages')
-    .then(function(res) { return res.json(); })
-    .then(function(messages) {
-        if (!studioChatMessages) return;
-        studioChatMessages.innerHTML = "";
-        if (Array.isArray(messages)) {
-            messages.forEach(function(msg) {
-                var div = document.createElement('div');
-                div.style.marginBottom = "5px";
-                var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
-                var senderContent = msg.sender ? msg.sender : "المذيع";
-                div.innerHTML = `<b>${senderContent}:</b> ` + document.createTextNode(textContent).textContent;
-                studioChatMessages.appendChild(div);
-            });
-        }
-        studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-    }).catch(function(err) { console.log("خطأ جلب الشات:", err); });
+fetch(SERVER_URL + '/api/messages')
+.then(function(res) { return res.json(); })
+.then(function(messages) {
+if (!studioChatMessages) return;
+studioChatMessages.innerHTML = "";
+if (Array.isArray(messages)) {
+messages.forEach(function(msg) {
+var div = document.createElement('div');
+div.style.marginBottom = "5px";
+var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
+var senderContent = msg.sender ? msg.sender : "المذيع";
+div.innerHTML = <b>${senderContent}:</b> + document.createTextNode(textContent).textContent;
+studioChatMessages.appendChild(div);
+});
+}
+studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+}).catch(function(err) { console.log("خطأ جلب الشات:", err); });
 }
 
 function fetchLikesFromServer() {
-    fetch(SERVER_URL + '/api/likes')
-    .then(function(res) { return res.json(); })
-    .then(function(likes) {
-        var tbody = document.getElementById('likesTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = "";
-        var tracks = Object.keys(likes);
-        if (tracks.length === 0) {
-            tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-            return;
-        }
-        tracks.forEach(function(track) {
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-            tbody.appendChild(tr);
-        });
-    }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
+fetch(SERVER_URL + '/api/likes')
+.then(function(res) { return res.json(); })
+.then(function(likes) {
+var tbody = document.getElementById('likesTableBody');
+if (!tbody) return;
+tbody.innerHTML = "";
+var tracks = Object.keys(likes);
+if (tracks.length === 0) {
+tbody.innerHTML = <tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>;
+return;
+}
+tracks.forEach(function(track) {
+var tr = document.createElement('tr');
+tr.innerHTML = <td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>;
+tbody.appendChild(tr);
+});
+}).catch(function(err) { console.log("خطأ تفاعلات:", err); });
 }
 
+// =========================================================================
+// 6️⃣ تشغيل الفحص الأمني التلقائي فور تشغيل السكريبت وحظر الواجهة
+// =========================================================================
+checkStudioSecurity();
 fetchChatFromServer();
 fetchLikesFromServer();
+
