@@ -5,8 +5,10 @@ var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
 
-// 🔗 الرابط الخاص بموقعك وسيرفرك على Render (تأكد من مطابقة اسم مشروعك تماماً)
-var SERVER_URL = window.location.origin;
+// 🔗 تحديد رابط السيرفر تلقائياً وبشكل ديناميكي لمنع مشاكل الحظر الأمني المتصفحات
+var SERVER_URL = window.location.origin.includes("github.io") 
+    ? "https://onrender.com" 
+    : window.location.origin;
 
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
@@ -59,16 +61,15 @@ setInterval(function() {
     }
 }, 1000);
 
-// تحديث دوري لجلب الشات والتفاعلات حياً من السيرفر السحابي
+// جلب دوري مستمر ومضمون للدردشة والتفاعلات من السيرفر كل 3 ثوانٍ
 setInterval(function() {
     fetchChatFromServer();
     fetchLikesFromServer();
 }, 3000);
 
-// 📅 زر حفظ الجدولة ورفع الملف الصوتي
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         var files = document.getElementById('albumFiles').files;
         var day = document.getElementById('schedDay').value;
         var time = document.getElementById('schedTime').value;
@@ -188,7 +189,7 @@ function startRecording(stream) {
 
 if (startMicBtn) {
     startMicBtn.addEventListener('click', function(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
         }
@@ -197,7 +198,7 @@ if (startMicBtn) {
 
 if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
         if (audioContext) audioContext.close();
         if (statusEl) statusEl.innerText = "إستعداد";
@@ -213,27 +214,33 @@ if (echoSlider) {
     });
 }
 
-// 💬 تعديل دالة الإرسال لمنع تعليق الصفحة وتثبيت تشغيل الزر
+// 💬 كود إرسال الدردشة الفوري والمحمي من التجميد في الهواتف
 if (sendStudioChatBtn) {
-    sendStudioChatBtn.addEventListener('click', function(e) {
-        if(e) e.preventDefault(); // منع المتصفح من إعادة تحميل الصفحة عند الضغط
+    sendStudioChatBtn.onclick = function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         
         var text = studioChatInput.value.trim();
-        if (!text) return;
+        if (!text) return false;
         
-        var payload = { sender: "المذيع", text: text };
+        studioChatInput.value = ""; 
 
         fetch(SERVER_URL + '/api/messages', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(function() {
-            studioChatInput.value = "";
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(function() {
             fetchChatFromServer(); 
-        }).catch(function(err) {
-            console.log("خطأ إرسال السيرفر:", err);
+        })
+        .catch(function(err) {
+            console.log("فشل إرسال الرسالة:", err);
         });
-    });
+
+        return false;
+    };
 }
 
 function fetchChatFromServer() {
@@ -249,7 +256,7 @@ function fetchChatFromServer() {
             studioChatMessages.appendChild(div);
         });
         studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-    }).catch(function(err) { console.log("خطأ جلب:", err); });
+    }).catch(function(err) { console.log("خطأ جلب الشات:", err); });
 }
 
 function fetchLikesFromServer() {
