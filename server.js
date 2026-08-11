@@ -7,8 +7,8 @@ var cors = require('cors');
 var app = express();
 var PORT = process.env.PORT || 3000; 
 
-// كلمة المرور السرية المعتمدة لدخول الاستوديو
-const STUDIO_PASSWORD = "123456"; 
+// كلمة المرور الافتراضية، ويمكن تغييرها ديناميكياً
+var STUDIO_PASSWORD = "123456"; 
 
 var subscribers = [];
 var radioSchedule = [
@@ -19,8 +19,9 @@ var currentTrack = "default_music.mp3";
 var lastTriggeredMinute = "";
 var isMicLive = false; 
 
-var globalMessages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي!" }];
-var globalLikes = {}; 
+var globalMessages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
+var globalLikes = {};
+var activeReactions = []; // لحفظ التفاعلات المتطايرة مؤقتاً 
 
 var recDir = path.join(__dirname, 'recordings');
 var audioDir = path.join(__dirname, 'audio'); 
@@ -40,7 +41,7 @@ app.use(express.json());
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' })); 
 
-// 🔐 مسار مصلح ومضمون للتحقق من كلمة المرور وإرسال حالة نجاح صريحة للمتصفح
+// 🔐 مسار التحقق من كلمة المرور
 app.post('/api/verify-login', function(req, res) {
 var pass = req.body.password;
 if (String(pass) === String(STUDIO_PASSWORD)) {
@@ -49,12 +50,27 @@ return res.status(200).json({ success: true });
 res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة!" });
 }); 
 
+// 🔄 الميزة 6: تغيير كلمة المرور من المتصفح
+app.post('/api/change-password', function(req, res) {
+var newPass = req.body.newPassword;
+if (newPass && String(newPass).trim().length > 0) {
+STUDIO_PASSWORD = String(newPass).trim();
+return res.status(200).json({ success: true, message: "تم تغيير كلمة المرور بنجاح" });
+}
+res.status(400).json({ success: false, error: "رمز غير صالح" });
+}); 
+
+// 👥 الميزة 2: عداد المستمعين الحاليين المتصلين بدفق الراديو
+app.get('/api/listeners-count', function(req, res) {
+res.status(200).json({ count: subscribers.length });
+}); 
+
 // توجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// 💬 استقبال وحفظ رسائل الدردشة
+// 💬 استقبال وحفظ رسائل الدردشة (الميزة 1: دعم اسم المستمع الفعلي)
 app.post('/api/messages', function(req, res) {
-var sender = req.body.sender || "المذيع";
+var sender = req.body.sender || "مستمع";
 var text = req.body.text; 
 
 if (text) {
@@ -71,7 +87,7 @@ res.status(400).json({ error: "لا يوجد نص" });
 
 app.get('/api/messages', function(req, res) { res.status(200).json(globalMessages); }); 
 
-// 👍 الإعجابات والتفاعلات
+// 👍 الإعجابات والتفاعلات بالقلوب
 app.post('/api/likes', function(req, res) {
 var data = req.body;
 if(data && data.track) {
@@ -84,9 +100,25 @@ res.status(200).json({ status: "success" });
 
 app.get('/api/likes', function(req, res) { res.status(200).json(globalLikes); }); 
 
+// 🎭 الميزة 3: استقبال وإرسال التفاعلات المتطايرة (Emojis)
+app.post('/api/reactions', function(req, res) {
+var emoji = req.body.emoji;
+if (emoji) {
+activeReactions.push({ emoji: emoji, id: Date.now() + Math.random() });
+if (activeReactions.length > 20) activeReactions.shift();
+return res.status(200).json({ status: "success" });
+}
+res.sendStatus(400);
+}); 
+
+app.get('/api/reactions', function(req, res) {
+res.status(200).json(activeReactions);
+activeReactions = []; // تفريغ التفاعلات بعد جلبها لكي لا تتكرر عند المستمعين
+}); 
+
 // 💾 رفع الألبومات وجدولتها
 app.post('/api/upload-album', upload.single('audioFile'), function(req, res) {
-if (!req.file) { return res.status(400).json({ error: "لم يتم استلام أي ملف صوتي" }); }
+if (!req.file) { return res.status(400).json({ error: "لم يتم استلام أي ملف صوتی" }); }
 var filename = req.file.filename;
 var now = new Date();
 radioSchedule.push({
