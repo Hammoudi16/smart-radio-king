@@ -5,6 +5,9 @@ var audioContext = null;
 var delayNode = null;
 var feedbackNode = null;
 
+// 🔗 الرابط الخاص بموقعك وسيرفرك الجديد على Render (دون وضع شرطة / في نهايته)
+var SERVER_URL = "https://onrender.com";
+
 var radioPlayer = document.getElementById('radioPlayer');
 var clockEl = document.getElementById('clock');
 var statusEl = document.getElementById('currentStatus');
@@ -17,7 +20,10 @@ var studioChatMessages = document.getElementById('studioChatMessages');
 var studioChatInput = document.getElementById('studioChatInput');
 var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
 
-// إعداد قاعدة البيانات المحلية IndexedDB للجدولة
+if (radioPlayer) {
+    radioPlayer.src = SERVER_URL + "/radio.mp3";
+}
+
 var request = indexedDB.open("RadioKingDB", 1);
 request.onupgradeneeded = function(e) {
     var database = e.target.result;
@@ -31,7 +37,6 @@ request.onsuccess = function(e) {
     loadSavedTracks();
 };
 
-// تحديث الساعة وفحص الجدولة التلقائية
 var lastTriggeredMinute = "";
 setInterval(function() {
     var now = new Date();
@@ -53,6 +58,12 @@ setInterval(function() {
         }
     }
 }, 1000);
+
+// تحديث دوري للشات والتفاعلات حياً من السيرفر السحابي
+setInterval(function() {
+    fetchChatFromServer();
+    fetchLikesFromServer();
+}, 3000);
 
 if (saveSchedBtn) {
     saveSchedBtn.addEventListener('click', function() {
@@ -111,15 +122,11 @@ function triggerAlbumPlay(day, time) {
             if (trackIndex < tracks.length) {
                 var fileURL = URL.createObjectURL(tracks[trackIndex].blob);
                 radioPlayer.src = fileURL;
-                localStorage.setItem('radio_current_src', fileURL);
-                localStorage.setItem('radio_track_title', tracks[trackIndex].name);
-                localStorage.setItem('radio_status', 'Playing');
-                
                 radioPlayer.play().catch(function() { trackIndex++; playNext(); });
                 radioPlayer.onended = function() { URL.revokeObjectURL(fileURL); trackIndex++; playNext(); };
             } else {
                 if (statusEl) statusEl.innerText = "إستعداد";
-                localStorage.setItem('radio_status', 'Ready');
+                radioPlayer.src = SERVER_URL + "/radio.mp3"; 
             }
         }
         playNext();
@@ -132,7 +139,6 @@ if (volumeSlider) {
     });
 }
 
-// تشغيل الميكروفون المباشر للاستوديو
 function startRecording(stream) {
     if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
     startMicBtn.disabled = true;
@@ -152,8 +158,17 @@ function startRecording(stream) {
     delayNode.connect(audioContext.destination);
     source.connect(audioContext.destination);
 
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start(1000);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) {
+            fetch(SERVER_URL + '/api/stream-mic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'audio/mpeg' },
+                body: e.data
+            });
+        }
+    };
+    mediaRecorder.start(500); 
 }
 
 if (startMicBtn) {
@@ -171,6 +186,7 @@ if (stopMicBtn) {
         if (statusEl) statusEl.innerText = "إستعداد";
         startMicBtn.disabled = false;
         stopMicBtn.disabled = true;
+        fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
     });
 }
 
@@ -180,64 +196,58 @@ if (echoSlider) {
     });
 }
 
-// 💬 نظام مزامنة الرسائل محلياً والمجرب بالمحاكاة وبدون سيرفر
 if (sendStudioChatBtn) {
     sendStudioChatBtn.addEventListener('click', function() {
         var text = studioChatInput.value.trim();
         if (!text) return;
-        
-        var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-        currentChat.push({ sender: "أنت (المذيع)", text: text });
-        localStorage.setItem('radio_global_chat', JSON.stringify(currentChat));
-        
-        // إشارة تحديث فورية للمتصفح الآخر
-        localStorage.setItem('chat_update_trigger', Date.now()); 
-        
-        studioChatInput.value = "";
-        renderChat();
+        var payload = { sender: "المذيع", text: text };
+
+        fetch(SERVER_URL + '/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function() {
+            studioChatInput.value = "";
+            fetchChatFromServer(); 
+        });
     });
 }
 
-window.addEventListener('storage', function(e) {
-    if (e.key === 'chat_update_trigger') {
-        renderChat();
-    }
-    if (e.key === 'like_update_trigger') {
-        renderLikes();
-    }
-});
-
-function renderChat() {
-    if (!studioChatMessages) return;
-    studioChatMessages.innerHTML = "";
-    var currentChat = JSON.parse(localStorage.getItem('radio_global_chat') || "[]");
-    currentChat.forEach(function(msg) {
-        var div = document.createElement('div');
-        div.style.marginBottom = "5px";
-        div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-        studioChatMessages.appendChild(div);
-    });
-    studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-}
-
-function renderLikes() {
-    var tbody = document.getElementById('likesTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-    var likes = JSON.parse(localStorage.getItem('radio_global_likes') || "{}");
-    var tracks = Object.keys(likes);
-    if (tracks.length === 0) {
-        tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-        return;
-    }
-    tracks.forEach(function(track) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-        tbody.appendChild(tr);
+function fetchChatFromServer() {
+    fetch(SERVER_URL + '/api/messages')
+    .then(function(res) { return res.json(); })
+    .then(function(messages) {
+        if (!studioChatMessages) return;
+        studioChatMessages.innerHTML = "";
+        messages.forEach(function(msg) {
+            var div = document.createElement('div');
+            div.style.marginBottom = "5px";
+            div.innerHTML = `<b>${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+            studioChatMessages.appendChild(div);
+        });
+        studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
     });
 }
 
-// رندرة أولية عند تشغيل الواجهة لقراءة البيانات المخزنة
-renderChat();
-renderLikes();
+function fetchLikesFromServer() {
+    fetch(SERVER_URL + '/api/likes')
+    .then(function(res) { return res.json(); })
+    .then(function(likes) {
+        var tbody = document.getElementById('likesTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        var tracks = Object.keys(likes);
+        if (tracks.length === 0) {
+            tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
+            return;
+        }
+        tracks.forEach(function(track) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
+            tbody.appendChild(tr);
+        });
+    });
+}
 
+fetchChatFromServer();
+fetchLikesFromServer();
