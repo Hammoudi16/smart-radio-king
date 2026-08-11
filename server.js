@@ -40,14 +40,15 @@ app.use(express.json());
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }));
 
-// مسار للتحقق من كلمة المرور القادمة من المتصفح
+// مسار التحقق من كلمة المرور في server.js
 app.post('/api/verify-login', function(req, res) {
     var pass = req.body.password;
-    if (pass === STUDIO_PASSWORD) {
+    if (pass === "123456") { // تأكد من مطابقة كلمة المرور هنا
         return res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
     }
     res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة!" });
 });
+
 
 // تشغيل وتوجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public تلقائياً
 app.use(express.static(path.join(__dirname, 'public')));
