@@ -45,10 +45,11 @@ app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }));
 app.post('/api/verify-login', function(req, res) {
     var pass = req.body.password;
     if (String(pass) === String(STUDIO_PASSWORD)) {
-        return res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
+        return res.sendStatus(200); // إرسال حالة نجاح صريحة ومباشرة للمتصفح
     }
-    res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة!" });
+    res.sendStatus(410);
 });
+
 
 // توجيه الموقع لعرض ملفات واجهة المستخدم من مجلد public
 app.use(express.static(path.join(__dirname, 'public')));
