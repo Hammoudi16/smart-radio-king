@@ -279,3 +279,13 @@ function startRecording(stream) {
   if (!MediaRecorder.isTypeSupported(mimeType)) { mimeType = 'audio/ogg;codecs=opus'; }
 
   mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+  
+mediaRecorder.ondataavailable = function(e) { 
+if (e.data.size > 0) { 
+fetch(SERVER_URL + '/api/stream-mic', { method: 'POST', headers: { 'Content-Type': mimeType }, body: e.data }); 
+} 
+}; 
+mediaRecorder.start(250); 
+}
+
+
