@@ -33,24 +33,33 @@ app.use(function(req, res, next) {
 app.use(express.json()) 
 app.use('/api/stream-mic', express.raw({ type: 'audio/mpeg', limit: '50mb' }))
 app.use('/api/archive', express.raw({ type: 'audio/mpeg', limit: '50mb' }))
-
-// 📂 مسار مخصص لاستقبال ورفع ملفات الألبومات المجدولة من الهاتف مباشرة
 app.use('/api/upload-album', express.raw({ type: 'multipart/form-data', limit: '50mb' }))
 
 app.get('/', function(req, res) { res.status(200).send("Radio King Active 24/7!"); })
 
+// 💬 استقبال وحفظ رسائل الدردشة مع إجبار السيرفر على إعادتها بصيغة نصوص واضحة
 app.post('/api/messages', function(req, res) {
-    var msg = req.body;
-    if(msg && msg.text) {
-        var cleanMsg = {
-            sender: msg.sender ? String(msg.sender).trim() : "مستمع عبر الإنترنت",
-            text: String(msg.text).trim()
-        };
-        globalMessages.push(cleanMsg);
-        if(globalMessages.length > 50) globalMessages.shift();
+    var text = req.body.text;
+    
+    // إذا أرسل الهاتف البيانات الخام، نقوم بفكها هنا
+    if (!text && req.body) {
+        text = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
-    res.status(200).json({ status: "success" });
-})
+
+    if (text) {
+        globalMessages.push({
+            sender: "المذيع",
+            text: String(text).replace('{"text":"', '').replace('"}', '').trim() // تنظيف النص
+        });
+        if (globalMessages.length > 50) globalMessages.shift();
+        
+        // إرسال رد النجاح الصريح للمتصفح لمنع تعليق الأزرار
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).send(JSON.stringify({ status: "success" }));
+    }
+    
+    res.status(400).json({ error: "لا يوجد نص" });
+});
 
 app.get('/api/messages', function(req, res) { res.status(200).json(globalMessages); })
 
@@ -66,19 +75,14 @@ app.post('/api/likes', function(req, res) {
 
 app.get('/api/likes', function(req, res) { res.status(200).json(globalLikes); })
 
-// 📅 استقبال وحفظ ملف الألبوم المرفوع داخل مجلد audio بالسيرفر ليعمل للمستمعين
 app.post('/api/upload-album', function(req, res) {
     var audioBuffer = req.body;
     var filename = 'album_' + Date.now() + '.mp3';
     
-    // حفظ الملف المرفوع مباشرة لتجده دالة البث عند مطابقة الوقت
     fs.writeFile(path.join(audioDir, filename), audioBuffer, function(err) {
         if (err) return res.status(500).json({ error: "فشل حفظ الألبوم سحابياً" });
-        
-        // إضافة الألبوم المرفوع مساره ديناميكياً للجدولة الحالية بالسيرفر
         var now = new Date();
         radioSchedule.push({ day: now.getDay(), time: lastTriggeredMinute, file: filename });
-        
         res.status(200).json({ status: "success", file: filename });
     });
 });
