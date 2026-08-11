@@ -258,26 +258,31 @@ function fetchChatFromServer() {
         studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
     }).catch(function(err) { console.log("خطأ جلب الشات:", err); });
 }
-
-function fetchLikesFromServer() {
-    fetch(SERVER_URL + '/api/likes')
+function fetchChatFromServer() {
+    fetch(SERVER_URL + '/api/messages')
     .then(function(res) { return res.json(); })
-    .then(function(likes) {
-        var tbody = document.getElementById('likesTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = "";
-        var tracks = Object.keys(likes);
-        if (tracks.length === 0) {
-            tbody.innerHTML = `<tr><td style="color: #a7a6ba;">لا توجد تفاعلات حتى الآن</td><td style="text-align: center; color: #a7a6ba;">0</td></tr>`;
-            return;
+    .then(function(messages) {
+        if (!studioChatMessages) return;
+        studioChatMessages.innerHTML = "";
+        
+        // التأكد من أن البيانات القادمة عبارة عن مصفوفة نصوص صحيحة
+        if (Array.isArray(messages)) {
+            messages.forEach(function(msg) {
+                var div = document.createElement('div');
+                div.style.marginBottom = "5px";
+                // حماية وقراءة نص الرسالة بدقة
+                var textContent = msg.text ? msg.text : (typeof msg === 'string' ? msg : "");
+                var senderContent = msg.sender ? msg.sender : "المذيع";
+                
+                div.innerHTML = `<b>${senderContent}:</b> ` + document.createTextNode(textContent).textContent;
+                studioChatMessages.appendChild(div);
+            });
         }
-        tracks.forEach(function(track) {
-            var tr = document.createElement('tr');
-            tr.innerHTML = `<td>${track}</td><td style="text-align:center; color:#ff0055; font-weight:bold;">${likes[track]} ❤️</td>`;
-            tbody.appendChild(tr);
-        });
-    }).catch(function(err) { console.log("خطأ تفاعلات:", err); });
+        studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+    }).catch(function(err) { console.log("خطأ جلب الشات:", err); });
 }
+
+
 
 fetchChatFromServer();
 fetchLikesFromServer();
