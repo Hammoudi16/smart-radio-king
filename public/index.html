@@ -23,6 +23,7 @@
         table { width: 100%; text-align: right; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; border-bottom: 1px solid #2a283e; }
         th { color: #00ebc7; }
+        audio { width: 100%; margin-top: 15px; border-radius: 8px; background: #2a283e; }
     </style>
   </head>
   <body>
@@ -35,7 +36,10 @@
           <h3>📊 مؤشرات الاستوديو المباشر</h3>
           <p>حالة البث الحالية: <span id="currentStatus" class="status">إستعداد</span></p>
           <p>ساعة الاستوديو: <span id="clock">00:00:00</span></p>
-          <br>
+          
+          <audio id="radioPlayer" controls preload="auto"></audio>
+          
+          <br><br>
           <label>🔊 مستوى الصوت العام للألبومات:</label>
           <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
           <br><br>
@@ -81,7 +85,7 @@
       <div class="card" style="margin-top: 20px;">
         <h3>📅 نظام جدولة الألبومات الأسبوعية التلقائي (IndexedDB)</h3>
         <label>اختر الملفات الصوتية للألبوم:</label>
-        <input type="file" id="albumFiles" multiple accept="audio/*">
+        <input type="file" id="albumFiles" name="audioFile" multiple accept="audio/*">
         
         <div style="display: flex; gap: 15px; margin-top: 10px;">
           <div style="flex: 1;">
@@ -105,8 +109,6 @@
       </div>
     </div>
 
-    <audio id="radioPlayer" preload="auto"></audio>
     <script src="app.js"></script>
   </body>
 </html>
-
