@@ -67,37 +67,60 @@
         var chatInput = document.getElementById('listenerChatInput');
         var nameInput = document.getElementById('listenerNameInput');
         var sendChatBtn = document.getElementById('sendListenerChatBtn');
+        var lastReactionTimestamp = Date.now(); // لتجنب تكرار جلب التفاعلات القديمة
 
-        if (player) { player.src = SERVER_URL + "/radio.mp3"; }
+        if (player) { 
+            player.src = SERVER_URL + "/radio.mp3"; 
+            player.onerror = function() {
+                // إعادة محاولة الاتصال بالبث في حال انقطاعه
+                setTimeout(function() { player.load(); player.play().catch(function(){}); }, 5000);
+            };
+        }
 
         function fetchChatAndStats() {
-            fetch(SERVER_URL + '/api/messages')
-            .then(res => res.json())
-            .then(messages => {
+            // جلب رسائل الشات
+            fetch(SERVER_URL + '/api/messages?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(messages) {
                 if (!chatMessages) return;
                 chatMessages.innerHTML = "";
-                messages.forEach(msg => {
-                    var div = document.createElement('div');
-                    div.style.marginBottom = "8px";
-                    var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
-                    div.innerHTML = `<b style="color: ${color}">${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
-                    chatMessages.appendChild(div);
-                });
+                if (Array.isArray(messages)) {
+                    messages.forEach(function(msg) {
+                        var div = document.createElement('div');
+                        div.style.marginBottom = "8px";
+                        var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
+                        
+                        var senderB = document.createElement('b');
+                        senderB.style.color = color;
+                        senderB.innerText = msg.sender + ": ";
+                        
+                        var textNode = document.createTextNode(msg.text);
+                        
+                        div.appendChild(senderB);
+                        div.appendChild(textNode);
+                        chatMessages.appendChild(div);
+                    });
+                }
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }).catch(function(){});
 
-            fetch(SERVER_URL + '/api/listeners-count')
-            .then(res => res.json())
-            .then(data => {
+            // جلب عداد المستمعين
+            fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
                 var el = document.getElementById('listenerLiveCount');
                 if (el && data.count !== undefined) el.innerText = data.count;
             }).catch(function(){});
 
-            fetch(SERVER_URL + '/api/reactions')
-            .then(res => res.json())
-            .then(reactions => {
-                if(Array.isArray(reactions)) {
-                    reactions.forEach(r => { createFloatingEmoji(r.emoji); });
+            // جلب التفاعلات الجديدة فقط بناءً على الوقت لتفادي التكرار المزعج
+            fetch(SERVER_URL + '/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(reactions) {
+                if (Array.isArray(reactions) && reactions.length > 0) {
+                    reactions.forEach(function(r) { 
+                        createFloatingEmoji(r.emoji); 
+                    });
+                    lastReactionTimestamp = Date.now();
                 }
             }).catch(function(){});
         }
@@ -115,13 +138,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: sender, text: text })
                 })
-                .then(() => fetchChatAndStats())
+                .then(function() { fetchChatAndStats(); })
                 .catch(function(){});
                 return false;
             };
         }
 
         function sendReaction(emoji) {
+            // إرسال التفاعل فوراً للسيرفر ليراه الجميع
+            createFloatingEmoji(emoji); // إظهارها محلياً للمرسل فور الضغط
             fetch(SERVER_URL + '/api/reactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -133,10 +158,10 @@
             var div = document.createElement('div');
             div.className = 'floating-emoji';
             div.innerText = emoji;
-            div.style.left = Math.random() * 100 + "vw";
+            div.style.left = Math.random() * 85 + "vw";
             div.style.animationDuration = (Math.random() * 2 + 3) + "s";
             document.body.appendChild(div);
-            setTimeout(() => { div.remove(); }, 5000);
+            setTimeout(function() { div.remove(); }, 5000);
         }
 
         setInterval(fetchChatAndStats, 3000);
