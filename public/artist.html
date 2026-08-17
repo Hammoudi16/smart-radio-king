@@ -89,7 +89,8 @@
         if (toggleBtn && player) {
             toggleBtn.onclick = function() {
                 if (!isPlaying) {
-                    player.src = SERVER_URL + "/radio.mp3?v=" + Date.now();
+                    player.src = "https://soundhelix.com";
+
                     player.load();
                     player.play()
                     .then(function() {
