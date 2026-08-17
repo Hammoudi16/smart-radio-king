@@ -26,7 +26,6 @@ window.addEventListener('DOMContentLoaded', function() {
             if (e) e.preventDefault(); 
             var pass = passInput ? passInput.value.trim() : "";
             
-            // تعديل أمني: التحقق من كلمة المرور من خلال السيرفر وليس محلياً
             fetch(SERVER_URL + '/api/verify-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -42,7 +41,6 @@ window.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(function() {
-                // حل بديل في حال عدم توفر الـ API مؤقتاً لتسهيل التجربة التجريبية
                 if (pass === "123456") {
                     sessionStorage.setItem('studio_authenticated', 'true');
                     forceUnlockStudio();
@@ -55,7 +53,7 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 }); 
 
-// 3. دالة جلب وتحديث الشات والمستمعين (مع حماية XSS كاملة)
+// 3. دالة جلب وتحديث الشات والمستمعين
 function fetchChatAndStats() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (studioChatMessages) {
@@ -71,7 +69,6 @@ function fetchChatAndStats() {
                     
                     var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
                     
-                    // حماية مضافة: تنظيف اسم المرسل والنص برمجياً لمنع الاختراق
                     var senderB = document.createElement('b');
                     senderB.style.color = color;
                     senderB.innerText = msg.sender + ": ";
@@ -152,7 +149,7 @@ function initializeStudio() {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })
         .then(function(stream) {
-            localStream = stream; // حفظ السينال لإغلاقها لاحقاً
+            localStream = stream; 
             startRecording(stream);
         })
         .catch(function(err) {
@@ -168,12 +165,10 @@ function initializeStudio() {
     stopMicBtn.addEventListener('click', function(e) {
       if (e) e.preventDefault();
       
-      // إيقاف الريكوردر
       if (mediaRecorder && mediaRecorder.state !== "inactive") {
           mediaRecorder.stop();
       }
       
-      // إغلاق قنوات المايكروفون تماماً لإطفاء اللمبة الحمراء في المتصفح
       if (localStream) {
           localStream.getTracks().forEach(function(track) { track.stop(); });
       }
@@ -204,6 +199,39 @@ function initializeStudio() {
     };
   }
 
+  // 👇 كود ربط وإصلاح زر حفظ جدولة الألبومات (تمت إضافته هنا بداخل دالة التهيئة) 👇
+  var saveSchedBtn = document.getElementById('saveSchedBtn');
+  if (saveSchedBtn) {
+      saveSchedBtn.onclick = function() {
+          var day = document.getElementById('schedDay').value;
+          var time = document.getElementById('schedTime').value;
+          var fileInput = document.getElementById('albumFiles');
+          
+          if (!time) { alert("الرجاء تحديد وقت البدء أولاً !"); return; }
+          
+          if (fileInput.files.length > 0) {
+              var formData = new FormData();
+              // نقوم بـ إرسال المتغيرات الإضافية ليتلقاها السيرفر مع الملف
+              formData.append("day", day);
+              formData.append("time", time);
+              formData.append("audioFile", fileInput.files[0]);
+              
+              fetch(SERVER_URL + '/api/upload-album', {
+                  method: 'POST',
+                  body: formData
+              })
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                  alert("تم رفع الملف وتثبيت جدول البث بنجاح !");
+                  fetchChatAndStats();
+              })
+              .catch(function() { alert("حدث خطأ أثناء رفع ألبوم الجدولة للسيرفر"); });
+          } else {
+              alert("الرجاء اختيار ملف صوتي أولاً لجدولته.");
+          }
+      };
+  }
+
   fetchChatAndStats();
 }
 
@@ -230,5 +258,5 @@ function startRecording(stream) {
       }).catch(function(err){ console.log(err); });
     }
   };
-  mediaRecorder.start(200); // إرسال كتلة صوتية كل 200 ملي ثانية لضمان بث فوري سريع
+  mediaRecorder.start(200); 
 }
