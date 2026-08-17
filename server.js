@@ -12,45 +12,37 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// دعم بث المايكروفون الخام والفواصل
+// دعم بث المايكروفون الحقيقي بدون قيود حجم
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
-// 👇 تعديل قراءة الملفات: قراءة الملفات من المجلد الرئيسي ومن مجلد public أيضاً 👇
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// إعداد مجلد الأصوات وإتاحته للمتصفح
 const audioDir = path.join(__dirname, 'audio');
 if (!fs.existsSync(audioDir)) {
     fs.mkdirSync(audioDir, { recursive: true });
 }
 app.use(express.static(audioDir)); 
 
-// المتغيرات والمصفوفات البرمجية المشتركة
 let currentPassword = "123456";
-let subscribers = []; // المستمعين المتصلين حالياً بالبث الحي
+let subscribers = []; 
 let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
 let reactions = [];
 let artistTracks = [];
 let isMicLive = false;
-let currentTrack = "default_music.mp3";
+let currentTrack = "jingle1.mp3"; // جعل الفاصل الافتراضي هو jingle1
 let lastTriggeredMinute = "";
 
-// نظام جدولة الألبومات الأسبوعي
-let radioSchedule = [
-  { day: 0, time: "20:00", file: "jingle1.mp3" }
-];
+// مصفوفة جدولة الألبومات والأغاني
+let radioSchedule = [];
 
-// إعداد مكتبة Multer لرفع ملفات الألبومات والتراكات
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); }
 });
 const upload = multer({ storage: storage });
 
-// --- مسارات الـ API والتحكم ---
-
-// التحقق من كلمة المرور
+// التحقق من الأمان ودخول الاستوديو
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password;
     if (String(password) === String(currentPassword)) {
@@ -60,17 +52,7 @@ app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     }
 });
 
-app.post('/api/change-password', (req, res) => {
-    const { newPassword } = req.body;
-    if (newPassword && String(newPassword).trim().length > 0) {
-        currentPassword = String(newPassword).trim();
-        res.json({ success: true, message: "تم تحديث رمز الدخول بنجاح" });
-    } else {
-        res.status(400).json({ success: false, message: "الرمز الجديد غير صالح" });
-    }
-});
-
-// صندوق المحادثة والدردشة
+// استقبال دردشة المستمعين والمذيع
 app.get('/api/messages', (req, res) => { res.json(messages); });
 app.post('/api/messages', (req, res) => {
     const { sender, text } = req.body;
@@ -81,12 +63,12 @@ app.post('/api/messages', (req, res) => {
     res.json({ success: true });
 });
 
-// عداد المستمعين المتصلين بالبث
+// عداد المتصلين
 app.get('/api/listeners-count', (req, res) => { 
-    res.json({ count: subscribers.length || 1 }); 
+    res.json({ count: subscribers.length }); 
 });
 
-// التفاعلات المتطايرة (Emojis)
+// التفاعلات المتطايرة
 app.get('/api/reactions', (req, res) => {
     const since = parseInt(req.query.since) || 0;
     const filtered = reactions.filter(r => r.time > since);
@@ -101,7 +83,7 @@ app.post('/api/reactions', (req, res) => {
     res.json({ success: true });
 });
 
-// رفع ألبومات المذيع وجدولتها تلقائياً
+// 📌 إصلاح رفع وجدولة الألبوم (يقرأ خياراتك المحددة باليد للوقت واليوم)
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "لم يتم استلام ملف الألبوم" });
     
@@ -115,28 +97,11 @@ app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
         file: filename
     });
     
+    console.log(`[جدولة] تم تثبيت ملف ${filename} لليوم ${chosenDay} عند الساعة ${chosenTime}`);
     res.json({ success: true, file: filename });
 });
 
-// رفع تراكات الفنانين وإحصائيات الإعجاب
-app.get('/api/artist-tracks', (req, res) => { res.json(artistTracks); });
-app.post('/api/upload-artist-track', upload.single('audioTrack'), (req, res) => {
-    const { title } = req.body;
-    if (req.file) {
-        const newTrack = {
-            id: Date.now(),
-            title: title || "تراك غير مسمى",
-            filename: req.file.filename,
-            likes: 0
-        };
-        artistTracks.push(newTrack);
-        res.json({ success: true, track: newTrack });
-    } else {
-        res.status(400).json({ success: false, message: "فشل استلام التراك الصوتي" });
-    }
-});
-
-// بث المايكروفون المباشر وتمريره الفوري لكل المستمعين المتصلين
+// بث صوت المايكروفون وتحويله فوراً للمستمعين
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     const audioBuffer = req.body;
@@ -148,13 +113,13 @@ app.post('/api/stream-mic', (req, res) => {
 
 app.post('/api/stop-mic', (req, res) => {
     isMicLive = false;
-    res.json({ success: true, message: "تم إيقاف المايكروفون وعودة الفواصل التلقائية" });
+    res.json({ success: true, message: "تم إيقاف المايك" });
 });
 
-// المخرج الرئيسي الصوتي للمستمعين والمذيع (Audio Stream Endpoint)
+// 📌 تعديل المخرج الرئيسي للبث ليتوافق مع المايكروفون والملفات معاً دون توقف المشغل
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
-        'Content-Type': 'audio/mpeg', 
+        'Content-Type': 'audio/any', // تغيير هامة لتقبل المتصفحات دفق المايك والألبومات معاً
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked',
         'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -165,16 +130,16 @@ app.get('/radio.mp3', (req, res) => {
     });
 });
 
-// دالة بث ملفات الصوت والفواصل الحية بشكل تدفقي مستمر (Chuncked Radio)
+// دالة تدوير البث الصوتي
 function broadcastAudio() {
     if (isMicLive) { setTimeout(broadcastAudio, 500); return; }
     let trackPath = path.join(audioDir, currentTrack);
     if (!fs.existsSync(trackPath)) { trackPath = path.join(audioDir, 'jingle1.mp3'); }
     if (!fs.existsSync(trackPath)) {
-        fs.writeFileSync(trackPath, Buffer.alloc(10000));
+        fs.writeFileSync(trackPath, Buffer.alloc(10000)); // ملف أمان احتياطي
     } 
 
-    const chunkSize = 4000;
+    const chunkSize = 6000;
     const intervalTime = 250;
     const buffer = Buffer.alloc(chunkSize);
 
@@ -197,9 +162,10 @@ function broadcastAudio() {
     });
 }
 
-// دالة فحص مواعيد الألبومات (متوافقة مع توقيت تونس والجزائر UTC+1 كمثال لمنع فارق توقيت Render)
+// دالة فحص الوقت الحقيقي لجدولة الألبومات (متوافقة مع التوقيت المحلي لمنع مشاكل فارق توقيت سيرفرات Render)
 setInterval(() => {
     const now = new Date();
+    // ضبط الوقت تلقائياً ليناسب توقيت منطقتك الإقليمية (شمال إفريقيا / تونس والجزائر)
     const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
     const [hours, minutes] = localTimeStr.split(':');
     const currentTime = `${hours}:${minutes}`;
@@ -211,14 +177,13 @@ setInterval(() => {
         const event = radioSchedule[i];
         if (Number(event.day) === Number(currentDay) && String(event.time) === String(currentTime)) {
             lastTriggeredMinute = currentTime;
-            currentTrack = event.file;
-            console.log(`[جدولة آلية]: تم تشغيل الألبوم المجدول بنجاح: ${currentTrack}`);
+            currentTrack = event.file; // تشغيل الألبوم المجدول فوراً
+            console.log(`[تنبيه جدولة] بدأ الآن تشغيل الألبوم المجدول بنجاح: ${currentTrack}`);
             break;
         }
     }
 }, 1000);
 
-// بدء عمل الراديو والسيرفر
 broadcastAudio();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
