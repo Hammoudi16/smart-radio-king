@@ -33,16 +33,15 @@
         <h1>📻 راديو كينج بث مباشر</h1>
         <div class="sub-title">المستمعين المتصلين حالياً: <b id="listenerLiveCount" style="color:#00ebc7">1</b> | استمع وتفاعل مباشرة</div>
 
+        <!-- 👇 تم تعديل هذا القسم لإضافة زر التشغيل التفاعلي وتفادي حظر المتصفح 👇 -->
         <div class="card">
-    <h3>🎵 البث الحي والمباشر</h3>
-    <!-- تعديل: إزالة الـ autoplay التلقائي وإضافة معرف واضح والتحكم به برمجياً -->
-    <audio id="listenerPlayer" controls preload="none"></audio>
-    <br>
-    <button id="startRadioLiveBtn" style="background: #ff0055; color: #fffffe; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px;">
-        ▶️ اضغط هنا لبدء الاستماع للبث الحي المباشر
-    </button>
-</div>
-
+            <h3>🎵 البث الحي والمباشر</h3>
+            <audio id="listenerPlayer" controls preload="none"></audio>
+            <br>
+            <button id="startRadioLiveBtn" style="background: #ff0055; color: #fffffe; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; font-size: 15px;">
+                ▶️ اضغط هنا لبدء الاستماع للبث الحي المباشر
+            </button>
+        </div>
 
         <div class="card">
             <h3>🎭 أرسل تفاعل متطاير للشاشة</h3>
@@ -73,18 +72,15 @@
         var chatInput = document.getElementById('listenerChatInput');
         var nameInput = document.getElementById('listenerNameInput');
         var sendChatBtn = document.getElementById('sendListenerChatBtn');
-        var lastReactionTimestamp = Date.now(); // لتجنب تكرار جلب التفاعلات القديمة
+        var lastReactionTimestamp = Date.now(); 
 
         if (player) { 
-            player.src = SERVER_URL + "/radio.mp3"; 
             player.onerror = function() {
-                // إعادة محاولة الاتصال بالبث في حال انقطاعه
                 setTimeout(function() { player.load(); player.play().catch(function(){}); }, 5000);
             };
         }
 
         function fetchChatAndStats() {
-            // جلب رسائل الشات
             fetch(SERVER_URL + '/api/messages?t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(messages) {
@@ -110,7 +106,6 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }).catch(function(){});
 
-            // جلب عداد المستمعين
             fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -118,7 +113,6 @@
                 if (el && data.count !== undefined) el.innerText = data.count;
             }).catch(function(){});
 
-            // جلب التفاعلات الجديدة فقط بناءً على الوقت لتفادي التكرار المزعج
             fetch(SERVER_URL + '/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(reactions) {
@@ -151,8 +145,7 @@
         }
 
         function sendReaction(emoji) {
-            // إرسال التفاعل فوراً للسيرفر ليراه الجميع
-            createFloatingEmoji(emoji); // إظهارها محلياً للمرسل فور الضغط
+            createFloatingEmoji(emoji); 
             fetch(SERVER_URL + '/api/reactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -172,6 +165,27 @@
 
         setInterval(fetchChatAndStats, 3000);
         fetchChatAndStats();
+
+        // 👇 الكود الجديد تم دمجه هنا بـ نجاح قبل نهاية وسم الـ script مباشرة 👇
+        var startLiveBtn = document.getElementById('startRadioLiveBtn');
+        if (startLiveBtn) {
+            startLiveBtn.onclick = function() {
+                if (player) {
+                    player.src = SERVER_URL + "/radio.mp3?cachebuster=" + Date.now();
+                    player.load();
+                    player.play()
+                    .then(function() {
+                        startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
+                        startLiveBtn.style.background = "#00ebc7";
+                        startLiveBtn.style.color = "#0f0e17";
+                    })
+                    .catch(function(error) {
+                        alert("برجاء الضغط مرة أخرى أو التحقق من صلاحيات المتصفح.");
+                        console.log(error);
+                    });
+                }
+            };
+        }
     </script>
 </body>
 </html>
