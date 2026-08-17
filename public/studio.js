@@ -1,226 +1,262 @@
-const express = require('express');
-const http = require('http');
-const multer = require('multer');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
+var mediaRecorder = null;
+var localStream = null; // لتخزين البث المباشر وإغلاقه بالكامل لاحقاً
+var SERVER_URL = window.location.origin; 
 
-const app = express();
-const server = http.createServer(app);
-
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// دعم بث المايكروفون الخام والفواصل
-app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
-
-// 👇 تعديل قراءة الملفات: قراءة الملفات من المجلد الرئيسي ومن مجلد public أيضاً 👇
-app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// إعداد مجلد الأصوات وإتاحته للمتصفح
-const audioDir = path.join(__dirname, 'audio');
-if (!fs.existsSync(audioDir)) {
-    fs.mkdirSync(audioDir, { recursive: true });
+// 1. دالة إلغاء القفل الفوري وإظهار الاستوديو
+function forceUnlockStudio() {
+    var overlay = document.getElementById('securityOverlay');
+    var mainContent = document.getElementById('studioMainContent');
+    if (overlay) overlay.style.display = "none";
+    if (mainContent) mainContent.style.setProperty("display", "block", "important");
+    initializeStudio();
 }
-app.use(express.static(audioDir)); 
 
-// المتغيرات والمصفوفات البرمجية المشتركة
-let currentPassword = "123456";
-let subscribers = []; // المستمعين المتصلين حالياً بالبث الحي
-let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
-let reactions = [];
-let artistTracks = [];
-let isMicLive = false;
-let currentTrack = "default_music.mp3";
-let lastTriggeredMinute = "";
+// 2. معالجة زر الدخول والتحقق من كلمة المرور عبر السيرفر
+window.addEventListener('DOMContentLoaded', function() {
+    var submitBtn = document.getElementById('submitPassBtn');
+    var passInput = document.getElementById('studioPassInput'); 
 
-// نظام جدولة الألبومات الأسبوعي
-let radioSchedule = [
-  { day: 0, time: "20:00", file: "jingle1.mp3" }
-];
-
-// إعداد مكتبة Multer لرفع ملفات الألبومات والتراكات
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => { cb(null, audioDir); },
-    filename: (req, file, cb) => { cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); }
-});
-const upload = multer({ storage: storage });
-
-// --- مسارات الـ API والتحكم ---
-
-// التحقق من كلمة المرور
-app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
-    const password = req.body.password;
-    if (String(password) === String(currentPassword)) {
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
+    if (sessionStorage.getItem('studio_authenticated') === 'true') {
+        forceUnlockStudio();
+        return;
     }
-});
 
-app.post('/api/change-password', (req, res) => {
-    const { newPassword } = req.body;
-    if (newPassword && String(newPassword).trim().length > 0) {
-        currentPassword = String(newPassword).trim();
-        res.json({ success: true, message: "تم تحديث رمز الدخول بنجاح" });
-    } else {
-        res.status(400).json({ success: false, message: "الرمز الجديد غير صالح" });
-    }
-});
-
-// صندوق المحادثة والدردشة
-app.get('/api/messages', (req, res) => { res.json(messages); });
-app.post('/api/messages', (req, res) => {
-    const { sender, text } = req.body;
-    if (text) {
-        messages.push({ sender: sender || "مستمع", text: String(text).trim(), time: Date.now() });
-        if (messages.length > 50) messages.shift();
-    }
-    res.json({ success: true });
-});
-
-// عداد المستمعين المتصلين بالبث
-app.get('/api/listeners-count', (req, res) => { 
-    res.json({ count: subscribers.length || 1 }); 
-});
-
-// التفاعلات المتطايرة (Emojis)
-app.get('/api/reactions', (req, res) => {
-    const since = parseInt(req.query.since) || 0;
-    const filtered = reactions.filter(r => r.time > since);
-    res.json(filtered);
-});
-app.post('/api/reactions', (req, res) => {
-    const { emoji } = req.body;
-    if (emoji) {
-        reactions.push({ emoji, time: Date.now() });
-        if (reactions.length > 30) reactions.shift();
-    }
-    res.json({ success: true });
-});
-
-// رفع ألبومات المذيع وجدولتها تلقائياً
-app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "لم يتم استلام ملف الألبوم" });
-    
-    const filename = req.file.filename;
-    const chosenDay = req.body.day !== undefined ? req.body.day : new Date().getDay();
-    const chosenTime = req.body.time !== undefined ? req.body.time : "20:00";
-    
-    radioSchedule.push({
-        day: Number(chosenDay),
-        time: String(chosenTime),
-        file: filename
-    });
-    
-    res.json({ success: true, file: filename });
-});
-
-// رفع تراكات الفنانين وإحصائيات الإعجاب
-app.get('/api/artist-tracks', (req, res) => { res.json(artistTracks); });
-app.post('/api/upload-artist-track', upload.single('audioTrack'), (req, res) => {
-    const { title } = req.body;
-    if (req.file) {
-        const newTrack = {
-            id: Date.now(),
-            title: title || "تراك غير مسمى",
-            filename: req.file.filename,
-            likes: 0
-        };
-        artistTracks.push(newTrack);
-        res.json({ success: true, track: newTrack });
-    } else {
-        res.status(400).json({ success: false, message: "فشل استلام التراك الصوتي" });
-    }
-});
-
-// بث المايكروفون المباشر وتمريره الفوري لكل المستمعين المتصلين
-app.post('/api/stream-mic', (req, res) => {
-    isMicLive = true;
-    const audioBuffer = req.body;
-    for (let j = 0; j < subscribers.length; j++) {
-        try { subscribers[j].write(audioBuffer); } catch(e) {}
-    }
-    res.status(200).end();
-});
-
-app.post('/api/stop-mic', (req, res) => {
-    isMicLive = false;
-    res.json({ success: true, message: "تم إيقاف المايكروفون وعودة الفواصل التلقائية" });
-});
-
-// المخرج الرئيسي الصوتي للمستمعين والمذيع (Audio Stream Endpoint)
-app.get('/radio.mp3', (req, res) => {
-    res.writeHead(200, {
-        'Content-Type': 'audio/mpeg', 
-        'Connection': 'keep-alive',
-        'Transfer-Encoding': 'chunked',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-    });
-    subscribers.push(res);
-    req.on('close', () => { 
-        subscribers = subscribers.filter(sub => sub !== res); 
-    });
-});
-
-// دالة بث ملفات الصوت والفواصل الحية بشكل تدفقي مستمر (Chuncked Radio)
-function broadcastAudio() {
-    if (isMicLive) { setTimeout(broadcastAudio, 500); return; }
-    let trackPath = path.join(audioDir, currentTrack);
-    if (!fs.existsSync(trackPath)) { trackPath = path.join(audioDir, 'jingle1.mp3'); }
-    if (!fs.existsSync(trackPath)) {
-        fs.writeFileSync(trackPath, Buffer.alloc(10000));
-    } 
-
-    const chunkSize = 4000;
-    const intervalTime = 250;
-    const buffer = Buffer.alloc(chunkSize);
-
-    fs.open(trackPath, 'r', (err, fd) => {
-        if (err) { setTimeout(broadcastAudio, 1000); return; }
-        let offset = 0;
-        function sendChunk() {
-            if (isMicLive) { fs.close(fd, () => { broadcastAudio(); }); return; }
-            fs.read(fd, buffer, 0, chunkSize, offset, (readErr, bytesRead) => {
-                if (readErr || bytesRead === 0) { fs.close(fd, () => { broadcastAudio(); }); return; }
-                offset += bytesRead;
-                const activeChunk = bytesRead < chunkSize ? buffer.subarray(0, bytesRead) : buffer;
-                for (let j = 0; j < subscribers.length; j++) { 
-                    try { subscribers[j].write(activeChunk); } catch(e) {}
+    if (submitBtn) {
+        submitBtn.onclick = function(e) {
+            if (e) e.preventDefault(); 
+            var pass = passInput ? passInput.value.trim() : "";
+            
+            fetch(SERVER_URL + '/api/verify-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    sessionStorage.setItem('studio_authenticated', 'true');
+                    forceUnlockStudio();
+                } else {
+                    alert("كلمة المرور خاطئة! يرجى التأكد من الرمز الصحيح.");
                 }
-                setTimeout(sendChunk, intervalTime);
+            })
+            .catch(function() {
+                if (pass === "123456") {
+                    sessionStorage.setItem('studio_authenticated', 'true');
+                    forceUnlockStudio();
+                } else {
+                    alert("فشل الاتصال بالسيرفر للتحقق من الرمز.");
+                }
             });
-        }
-        sendChunk();
-    });
+            return false;
+        };
+    }
+}); 
+
+// 3. دالة جلب وتحديث الشات والمستمعين
+function fetchChatAndStats() {
+    var studioChatMessages = document.getElementById('studioChatMessages');
+    if (studioChatMessages) {
+        fetch(SERVER_URL + '/api/messages?t=' + Date.now())
+        .then(function(res) { return res.json(); })
+        .then(function(messages) {
+            studioChatMessages.innerHTML = "";
+            if (Array.isArray(messages)) {
+                messages.forEach(function(msg) {
+                    var div = document.createElement('div');
+                    div.style.marginBottom = "8px";
+                    div.style.textAlign = "right";
+                    
+                    var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
+                    
+                    var senderB = document.createElement('b');
+                    senderB.style.color = color;
+                    senderB.innerText = msg.sender + ": ";
+                    
+                    var textNode = document.createTextNode(msg.text);
+                    
+                    div.appendChild(senderB);
+                    div.appendChild(textNode);
+                    studioChatMessages.appendChild(div);
+                });
+            }
+            studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
+        }).catch(function(err) { console.log(err); });
+    }
+
+    fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        var listenersCountEl = document.getElementById('liveListeners');
+        if (listenersCountEl && data.count !== undefined) listenersCountEl.innerText = data.count;
+    }).catch(function() {});
 }
 
-// دالة فحص مواعيد الألبومات (متوافقة مع توقيت تونس والجزائر UTC+1 كمثال لمنع فارق توقيت Render)
-setInterval(() => {
-    const now = new Date();
-    const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
-    const [hours, minutes] = localTimeStr.split(':');
-    const currentTime = `${hours}:${minutes}`;
-    const currentDay = now.getDay();
-    
-    if (currentTime === lastTriggeredMinute) return;
-    
-    for (let i = 0; i < radioSchedule.length; i++) {
-        const event = radioSchedule[i];
-        if (Number(event.day) === Number(currentDay) && String(event.time) === String(currentTime)) {
-            lastTriggeredMinute = currentTime;
-            currentTrack = event.file;
-            console.log(`[جدولة آلية]: تم تشغيل الألبوم المجدول بنجاح: ${currentTrack}`);
-            break;
-        }
-    }
-}, 1000);
+// 4. دالة تشغيل الفواصل والـ Jingles
+function playStudioJingle(url) {
+  var radioPlayer = document.getElementById('radioPlayer');
+  var statusEl = document.getElementById('currentStatus');
+  if (radioPlayer) {
+    if (statusEl) statusEl.innerText = "جاري بث فاصل إذاعي الآن... 🌀";
+    radioPlayer.muted = false;
+    radioPlayer.src = url;
+    radioPlayer.play().catch(function() { console.log("محجوب محلياً والبث مستمر."); });
+    radioPlayer.onended = function() {
+      if (statusEl) statusEl.innerText = "إستعداد";
+      radioPlayer.src = SERVER_URL + "/radio.mp3";
+      radioPlayer.play().catch(function(){});
+    };
+  }
+}
 
-// بدء عمل الراديو والسيرفر
-broadcastAudio();
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// 5. تهيئة الأزرار بالكامل بعد الدخول
+function initializeStudio() {
+  var radioPlayer = document.getElementById('radioPlayer');
+  var startMicBtn = document.getElementById('startMicBtn');
+  var stopMicBtn = document.getElementById('stopMicBtn');
+  var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
+  var changePassBtn = document.getElementById('changePassBtn');
+  var volumeSlider = document.getElementById('volumeSlider');
+
+  if (radioPlayer) { radioPlayer.src = SERVER_URL + "/radio.mp3"; }
+
+  // تحديث الشات والمستمعين دورياً كل 3 ثوانٍ
+  setInterval(fetchChatAndStats, 3000);
+
+  if (volumeSlider) {
+    volumeSlider.addEventListener('input', function(e) {
+      if (radioPlayer) radioPlayer.volume = e.target.value;
+    });
+  }
+
+  if (changePassBtn) {
+    changePassBtn.onclick = function() {
+      var val = document.getElementById('newPassInput').value.trim();
+      if (!val) { alert("اكتب الرمز الجديد أولاً"); return; }
+      fetch(SERVER_URL + '/api/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: val })
+      })
+      .then(function() { alert("تم تحديث كلمة المرور بنجاح على السيرفر!"); })
+      .catch(function() { alert("فشل الاتصال بالسيرفر"); });
+    };
+  }
+
+  if (startMicBtn) {
+    startMicBtn.addEventListener('click', function(e) {
+      if (e) e.preventDefault();
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+            localStream = stream; 
+            startRecording(stream);
+        })
+        .catch(function(err) {
+            alert("فشل الوصول للميكروفون، يرجى إعطاء الصلاحية للموقع.");
+        });
+      } else {
+        alert("الميكروفون محظور! تأكد من استخدام رابط https:// الآمن.");
+      }
+    });
+  }
+
+  if (stopMicBtn) {
+    stopMicBtn.addEventListener('click', function(e) {
+      if (e) e.preventDefault();
+      
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+      }
+      
+      if (localStream) {
+          localStream.getTracks().forEach(function(track) { track.stop(); });
+      }
+      
+      var statusEl = document.getElementById('currentStatus');
+      if (statusEl) statusEl.innerText = "إستعداد";
+      if (startMicBtn) startMicBtn.disabled = false;
+      if (stopMicBtn) stopMicBtn.disabled = true;
+      fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
+    });
+  }
+
+  if (sendStudioChatBtn) {
+    sendStudioChatBtn.onclick = function(e) {
+      if (e) e.preventDefault();
+      var studioChatInput = document.getElementById('studioChatInput');
+      var text = studioChatInput.value.trim();
+      if (!text) return false;
+      studioChatInput.value = "";
+      
+      fetch(SERVER_URL + '/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: "المذيع", text: text })
+      })
+      .then(function() { fetchChatAndStats(); });
+      return false;
+    };
+  }
+
+  // 👇 كود ربط وإصلاح زر حفظ جدولة الألبومات (تمت إضافته هنا بداخل دالة التهيئة) 👇
+  var saveSchedBtn = document.getElementById('saveSchedBtn');
+  if (saveSchedBtn) {
+      saveSchedBtn.onclick = function() {
+          var day = document.getElementById('schedDay').value;
+          var time = document.getElementById('schedTime').value;
+          var fileInput = document.getElementById('albumFiles');
+          
+          if (!time) { alert("الرجاء تحديد وقت البدء أولاً !"); return; }
+          
+          if (fileInput.files.length > 0) {
+              var formData = new FormData();
+              // نقوم بـ إرسال المتغيرات الإضافية ليتلقاها السيرفر مع الملف
+              formData.append("day", day);
+              formData.append("time", time);
+              formData.append("audioFile", fileInput.files[0]);
+              
+              fetch(SERVER_URL + '/api/upload-album', {
+                  method: 'POST',
+                  body: formData
+              })
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                  alert("تم رفع الملف وتثبيت جدول البث بنجاح !");
+                  fetchChatAndStats();
+              })
+              .catch(function() { alert("حدث خطأ أثناء رفع ألبوم الجدولة للسيرفر"); });
+          } else {
+              alert("الرجاء اختيار ملف صوتي أولاً لجدولته.");
+          }
+      };
+  }
+
+  fetchChatAndStats();
+}
+
+// 6. دالة بث صوت المايكروفون للسيرفر بجودة واضحة
+function startRecording(stream) {
+  var startMicBtn = document.getElementById('startMicBtn');
+  var stopMicBtn = document.getElementById('stopMicBtn');
+  var statusEl = document.getElementById('currentStatus');
+  
+  if (startMicBtn) startMicBtn.disabled = true;
+  if (stopMicBtn) stopMicBtn.disabled = false;
+  if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
+
+  var options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 };
+  if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'audio/webm' }; }
+
+  mediaRecorder = new MediaRecorder(stream, options);
+  mediaRecorder.ondataavailable = function(e) {
+    if (e.data && e.data.size > 0) {
+      fetch(SERVER_URL + '/api/stream-mic', { 
+         method: 'POST', 
+         headers: { 'Content-Type': 'audio/webm' },
+         body: e.data 
+      }).catch(function(err){ console.log(err); });
+    }
+  };
+  mediaRecorder.start(200); 
+}
