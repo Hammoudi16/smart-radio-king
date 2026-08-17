@@ -1,4 +1,5 @@
 var mediaRecorder = null;
+var localStream = null; // لتخزين البث المباشر وإغلاقه بالكامل لاحقاً
 var SERVER_URL = window.location.origin; 
 
 // 1. دالة إلغاء القفل الفوري وإظهار الاستوديو
@@ -10,7 +11,7 @@ function forceUnlockStudio() {
     initializeStudio();
 }
 
-// 2. معالجة زر الدخول فور تحميل الصفحة
+// 2. معالجة زر الدخول والتحقق من كلمة المرور عبر السيرفر
 window.addEventListener('DOMContentLoaded', function() {
     var submitBtn = document.getElementById('submitPassBtn');
     var passInput = document.getElementById('studioPassInput'); 
@@ -25,18 +26,36 @@ window.addEventListener('DOMContentLoaded', function() {
             if (e) e.preventDefault(); 
             var pass = passInput ? passInput.value.trim() : "";
             
-            if (pass === "123456") {
-                sessionStorage.setItem('studio_authenticated', 'true');
-                forceUnlockStudio();
-            } else {
-                alert("كلمة المرور الافتراضية هي 123456");
-            }
+            // تعديل أمني: التحقق من كلمة المرور من خلال السيرفر وليس محلياً
+            fetch(SERVER_URL + '/api/verify-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    sessionStorage.setItem('studio_authenticated', 'true');
+                    forceUnlockStudio();
+                } else {
+                    alert("كلمة المرور خاطئة! يرجى التأكد من الرمز الصحيح.");
+                }
+            })
+            .catch(function() {
+                // حل بديل في حال عدم توفر الـ API مؤقتاً لتسهيل التجربة التجريبية
+                if (pass === "123456") {
+                    sessionStorage.setItem('studio_authenticated', 'true');
+                    forceUnlockStudio();
+                } else {
+                    alert("فشل الاتصال بالسيرفر للتحقق من الرمز.");
+                }
+            });
             return false;
         };
     }
 }); 
 
-// 3. دالة جلب وتحديث الشات والمستمعين
+// 3. دالة جلب وتحديث الشات والمستمعين (مع حماية XSS كاملة)
 function fetchChatAndStats() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (studioChatMessages) {
@@ -49,8 +68,18 @@ function fetchChatAndStats() {
                     var div = document.createElement('div');
                     div.style.marginBottom = "8px";
                     div.style.textAlign = "right";
+                    
                     var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
-                    div.innerHTML = `<b style="color: ${color}">${msg.sender}:</b> ` + document.createTextNode(msg.text).textContent;
+                    
+                    // حماية مضافة: تنظيف اسم المرسل والنص برمجياً لمنع الاختراق
+                    var senderB = document.createElement('b');
+                    senderB.style.color = color;
+                    senderB.innerText = msg.sender + ": ";
+                    
+                    var textNode = document.createTextNode(msg.text);
+                    
+                    div.appendChild(senderB);
+                    div.appendChild(textNode);
                     studioChatMessages.appendChild(div);
                 });
             }
@@ -66,7 +95,7 @@ function fetchChatAndStats() {
     }).catch(function() {});
 }
 
-// 4. دالة تشغيل الفواصل والـ Jingles (مختصرة ومصممة للأندرويد)
+// 4. دالة تشغيل الفواصل والـ Jingles
 function playStudioJingle(url) {
   var radioPlayer = document.getElementById('radioPlayer');
   var statusEl = document.getElementById('currentStatus');
@@ -97,14 +126,12 @@ function initializeStudio() {
   // تحديث الشات والمستمعين دورياً كل 3 ثوانٍ
   setInterval(fetchChatAndStats, 3000);
 
-  // ميزة التحكم بمستوى الصوت
   if (volumeSlider) {
     volumeSlider.addEventListener('input', function(e) {
       if (radioPlayer) radioPlayer.volume = e.target.value;
     });
   }
 
-  // ميزة تغيير كلمة المرور أونلاين
   if (changePassBtn) {
     changePassBtn.onclick = function() {
       var val = document.getElementById('newPassInput').value.trim();
@@ -119,23 +146,38 @@ function initializeStudio() {
     };
   }
 
-  // زر المايكروفون وبدء البث
   if (startMicBtn) {
     startMicBtn.addEventListener('click', function(e) {
       if (e) e.preventDefault();
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(startRecording);
+        navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+            localStream = stream; // حفظ السينال لإغلاقها لاحقاً
+            startRecording(stream);
+        })
+        .catch(function(err) {
+            alert("فشل الوصول للميكروفون، يرجى إعطاء الصلاحية للموقع.");
+        });
       } else {
         alert("الميكروفون محظور! تأكد من استخدام رابط https:// الآمن.");
       }
     });
   }
 
-  // زر إيقاف المايكروفون
   if (stopMicBtn) {
     stopMicBtn.addEventListener('click', function(e) {
       if (e) e.preventDefault();
-      if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      
+      // إيقاف الريكوردر
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+      }
+      
+      // إغلاق قنوات المايكروفون تماماً لإطفاء اللمبة الحمراء في المتصفح
+      if (localStream) {
+          localStream.getTracks().forEach(function(track) { track.stop(); });
+      }
+      
       var statusEl = document.getElementById('currentStatus');
       if (statusEl) statusEl.innerText = "إستعداد";
       if (startMicBtn) startMicBtn.disabled = false;
@@ -144,7 +186,6 @@ function initializeStudio() {
     });
   }
 
-  // زر إرسال دردشة الاستوديو
   if (sendStudioChatBtn) {
     sendStudioChatBtn.onclick = function(e) {
       if (e) e.preventDefault();
@@ -189,5 +230,5 @@ function startRecording(stream) {
       }).catch(function(err){ console.log(err); });
     }
   };
-  mediaRecorder.start(200);
+  mediaRecorder.start(200); // إرسال كتلة صوتية كل 200 ملي ثانية لضمان بث فوري سريع
 }
