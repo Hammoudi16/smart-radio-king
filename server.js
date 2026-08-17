@@ -117,18 +117,22 @@ app.post('/api/stop-mic', (req, res) => {
 });
 
 // 📌 تعديل المخرج الرئيسي للبث ليتوافق مع المايكروفون والملفات معاً دون توقف المشغل
+// Correction de la route pour forcer le format standard MPEG compatible mobiles et Render
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
-        'Content-Type': 'audio/any', // تغيير هامة لتقبل المتصفحات دفق المايك والألبومات معاً
+        'Content-Type': 'audio/mpeg', // Changement : audio/mpeg est obligatoire pour éviter le blocage des navigateurs
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     });
     subscribers.push(res);
     req.on('close', () => { 
         subscribers = subscribers.filter(sub => sub !== res); 
     });
 });
+
 
 // دالة تدوير البث الصوتي
 function broadcastAudio() {
