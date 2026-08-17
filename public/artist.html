@@ -57,7 +57,7 @@
         var trackList = document.getElementById('artistTrackList');
 
         function loadArtistTracks() {
-            fetch(SERVER_URL + '/api/artist-tracks')
+            fetch(SERVER_URL + '/api/artist-tracks?t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(tracks) {
                 if (!trackList) return;
@@ -70,10 +70,20 @@
                     var li = document.createElement('li');
                     li.className = "track-item";
                     var likesCount = track.likes !== undefined ? track.likes : 0;
-                    li.innerHTML = `
-                        <div class="track-info"><span>🎵 ${document.createTextNode(track.title).textContent}</span></div>
-                        <div class="track-stats"><span>❤️ ${likesCount} تفاعل</span></div>
-                    `;
+                    
+                    var infoDiv = document.createElement('div');
+                    infoDiv.className = "track-info";
+                    var titleSpan = document.createElement('span');
+                    titleSpan.innerText = "🎵 ";
+                    titleSpan.appendChild(document.createTextNode(track.title));
+                    infoDiv.appendChild(titleSpan);
+
+                    var statsDiv = document.createElement('div');
+                    statsDiv.className = "track-stats";
+                    statsDiv.innerText = "❤️ " + likesCount + " تفاعل";
+
+                    li.appendChild(infoDiv);
+                    li.appendChild(statsDiv);
                     trackList.appendChild(li);
                 });
             })
@@ -89,13 +99,12 @@
                 var fileInput = document.getElementById('trackFile');
                 
                 if (!fileInput.files || fileInput.files.length === 0) {
-                    alert("الرجاء اختيار ملف صوتی أولاً!");
+                    alert("الرجاء اختيار ملف صوتي أولاً!");
                     return false;
                 }
 
                 var formData = new FormData();
                 formData.append("title", titleInput.value.trim());
-                // تصحيح الخطأ البرمجي هنا: إرسال الملف الأول المباشر من مصفوفة الإدخال ليتعرف عليه الـ Multer بالسيرفر
                 formData.append("audioTrack", fileInput.files[0]); 
 
                 fetch(SERVER_URL + '/api/upload-artist-track', {
