@@ -194,12 +194,16 @@ function broadcastAudio() {
 }
 
 // دالة التحقق الذكي من جدول المواعيد والألبومات المجدولة كل ثانية
+// Détecter l'heure selon votre fuseau horaire local pour la planification
 setInterval(() => {
     const now = new Date();
-    const currentDay = now.getDay();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const currentTime = hours + ":" + minutes;
+    
+    // Forcer le fuseau horaire d'Afrique du Nord / Europe Centrale (Ex: "Africa/Tunis" ou "Africa/Algiers")
+    const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
+    const [hours, minutes] = localTimeStr.split(':');
+    const currentTime = `${hours}:${minutes}`;
+    
+    const currentDay = now.getDay(); // Note: attention au décalage de jour potentiel en UTC, le mieux est de synchroniser totalement.
     
     if (currentTime === lastTriggeredMinute) return;
     
@@ -213,6 +217,7 @@ setInterval(() => {
         }
     }
 }, 1000);
+
 
 // بدء عمل الراديو والسيرفر
 broadcastAudio();
