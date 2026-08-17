@@ -34,9 +34,15 @@
         <div class="sub-title">المستمعين المتصلين حالياً: <b id="listenerLiveCount" style="color:#00ebc7">1</b> | استمع وتفاعل مباشرة</div>
 
         <div class="card">
-            <h3>🎵 البث الحي والمباشر</h3>
-            <audio id="listenerPlayer" controls autoplay preload="auto"></audio>
-        </div>
+    <h3>🎵 البث الحي والمباشر</h3>
+    <!-- تعديل: إزالة الـ autoplay التلقائي وإضافة معرف واضح والتحكم به برمجياً -->
+    <audio id="listenerPlayer" controls preload="none"></audio>
+    <br>
+    <button id="startRadioLiveBtn" style="background: #ff0055; color: #fffffe; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px;">
+        ▶️ اضغط هنا لبدء الاستماع للبث الحي المباشر
+    </button>
+</div>
+
 
         <div class="card">
             <h3>🎭 أرسل تفاعل متطاير للشاشة</h3>
