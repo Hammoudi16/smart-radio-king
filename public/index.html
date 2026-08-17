@@ -61,7 +61,6 @@
           <h3>🎤 التحكم في الميكروفون والبث المباشر</h3>
           <button id="startMicBtn">🔴 تشغيل الميكروفون وبث مباشر الآن</button>
           <button id="stopMicBtn" disabled style="background: #4a475a;">إيقاف البث وحفظ الحلقة في الأرشيف</button>
-          <!-- الميزة 4: إضافة زر إشارة التنبيه للمستمعين -->
           <button id="alertBeepBtn" onclick="playStudioAlertSound()" style="background: #00ebc7; color: #0f0e17;">🔔 إرسال صوت تنبيه (Beep Effect)</button>
         </div>
 
@@ -120,6 +119,34 @@
       </div>
     </div>
 
+    <script>
+        // تشغيل ساعة الاستوديو الحية تفاديًا لأي خطأ في المراسلة
+        setInterval(function() {
+            var clockEl = document.getElementById('clock');
+            if (clockEl) {
+                var d = new Date();
+                clockEl.innerText = d.toLocaleTimeString('en-GB');
+            }
+        }, 1000);
+
+        // دالة توليد صوت التنبيه Beep باستخدام Web Audio API
+        function playStudioAlertSound() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            } catch(e) {
+                console.log("AudioContext not supported");
+            }
+        }
+    </script>
     <script src="studio.js"></script>
   </body>
 </html>
