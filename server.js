@@ -15,8 +15,11 @@ app.use(express.urlencoded({ extended: true }));
 // دعم بث المايكروفون الخام والفواصل
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
-// إتاحة الفولدر الرئيسي وفولدر الصوت للمتصفح مباشرة
+// 👇 تعديل قراءة الملفات: قراءة الملفات من المجلد الرئيسي ومن مجلد public أيضاً 👇
 app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// إعداد مجلد الأصوات وإتاحته للمتصفح
 const audioDir = path.join(__dirname, 'audio');
 if (!fs.existsSync(audioDir)) {
     fs.mkdirSync(audioDir, { recursive: true });
@@ -47,7 +50,7 @@ const upload = multer({ storage: storage });
 
 // --- مسارات الـ API والتحكم ---
 
-// 1. تعديل أمني هام: دمج المسارين لمنع خطأ تسجيل الدخول
+// التحقق من كلمة المرور
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password;
     if (String(password) === String(currentPassword)) {
@@ -101,15 +104,17 @@ app.post('/api/reactions', (req, res) => {
 // رفع ألبومات المذيع وجدولتها تلقائياً
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "لم يتم استلام ملف الألبوم" });
-    const filename = req.file.filename;
-    const now = new Date();
     
-    // إضافة الملف المرفوع لجدول البث التلقائي
+    const filename = req.file.filename;
+    const chosenDay = req.body.day !== undefined ? req.body.day : new Date().getDay();
+    const chosenTime = req.body.time !== undefined ? req.body.time : "20:00";
+    
     radioSchedule.push({
-        day: now.getDay(),
-        time: (now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0')),
+        day: Number(chosenDay),
+        time: String(chosenTime),
         file: filename
     });
+    
     res.json({ success: true, file: filename });
 });
 
@@ -166,7 +171,6 @@ function broadcastAudio() {
     let trackPath = path.join(audioDir, currentTrack);
     if (!fs.existsSync(trackPath)) { trackPath = path.join(audioDir, 'jingle1.mp3'); }
     if (!fs.existsSync(trackPath)) {
-        // إنشاء ملف احتياطي افتراضي لضمان استمرار عمل الدورة الصوتية دون انهيار السيرفر
         fs.writeFileSync(trackPath, Buffer.alloc(10000));
     } 
 
@@ -193,17 +197,13 @@ function broadcastAudio() {
     });
 }
 
-// دالة التحقق الذكي من جدول المواعيد والألبومات المجدولة كل ثانية
-// Détecter l'heure selon votre fuseau horaire local pour la planification
+// دالة فحص مواعيد الألبومات (متوافقة مع توقيت تونس والجزائر UTC+1 كمثال لمنع فارق توقيت Render)
 setInterval(() => {
     const now = new Date();
-    
-    // Forcer le fuseau horaire d'Afrique du Nord / Europe Centrale (Ex: "Africa/Tunis" ou "Africa/Algiers")
     const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
     const [hours, minutes] = localTimeStr.split(':');
     const currentTime = `${hours}:${minutes}`;
-    
-    const currentDay = now.getDay(); // Note: attention au décalage de jour potentiel en UTC, le mieux est de synchroniser totalement.
+    const currentDay = now.getDay();
     
     if (currentTime === lastTriggeredMinute) return;
     
@@ -217,7 +217,6 @@ setInterval(() => {
         }
     }
 }, 1000);
-
 
 // بدء عمل الراديو والسيرفر
 broadcastAudio();
