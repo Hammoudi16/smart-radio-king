@@ -86,31 +86,33 @@
         var isPlaying = false;
 
         // 📌 دالة التحكم بالتشغيل والإيقاف وإجبار المتصفح على البث وتفادي الكاش
-        if (toggleBtn && player) {
-            toggleBtn.onclick = function() {
-                if (!isPlaying) {
-                    player.src = "https://soundhelix.com";
-
-                    player.load();
-                    player.play()
-                    .then(function() {
-                        isPlaying = true;
-                        toggleBtn.innerText = "⏸️ إيقاف مؤقت";
-                        toggleBtn.classList.add('playing');
-                    })
-                    .catch(function(err) {
-                        alert("فشل تشغيل الصوت، تأكد من رفع ملف jingle1.mp3 حقيقي في السيرفر.");
-                        console.log(err);
-                    });
-                } else {
-                    player.pause();
-                    player.src = "";
-                    isPlaying = false;
-                    toggleBtn.innerText = "▶️ تشغيل البث المباشر";
-                    toggleBtn.classList.remove('playing');
-                }
-            };
+        // دالة التحكم بالتشغيل والإيقاف وتفادي الكاش الميت في لوحة الفنان
+if (toggleBtn && player) {
+    toggleBtn.onclick = function() {
+        if (!isPlaying) {
+            // 👇 هنا نضع الكود الجديد داخل لوحة الفنان 👇
+            player.src = window.location.origin + "/radio.mp3?t=" + Date.now();
+            player.load();
+            player.play()
+            .then(function() {
+                isPlaying = true;
+                toggleBtn.innerText = "⏸️ إيقاف مؤقت";
+                toggleBtn.classList.add('playing');
+            })
+            .catch(function(err) {
+                alert("فشل تشغيل الصوت، تأكد من رفع ملف jingle1.mp3 حقيقي في السيرفر.");
+                console.log(err);
+            });
+        } else {
+            player.pause();
+            player.src = "";
+            isPlaying = false;
+            toggleBtn.innerText = "▶️ تشغيل البث المباشر";
+            toggleBtn.classList.remove('playing');
         }
+    };
+}
+
 
         // دالة جلب الشات وتحديثه برمجياً مع حماية كاملة ضد الاختراق XSS
         function fetchChatAndTracks() {
