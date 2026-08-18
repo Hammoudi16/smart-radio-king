@@ -167,25 +167,28 @@
         fetchChatAndStats();
 
         // 👇 الكود الجديد تم دمجه هنا بـ نجاح قبل نهاية وسم الـ script مباشرة 👇
-        var startLiveBtn = document.getElementById('startRadioLiveBtn');
-        if (startLiveBtn) {
-            startLiveBtn.onclick = function() {
-                if (player) {
-                    player.src = SERVER_URL + "/radio.mp3?cachebuster=" + Date.now();
-                    player.load();
-                    player.play()
-                    .then(function() {
-                        startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
-                        startLiveBtn.style.background = "#00ebc7";
-                        startLiveBtn.style.color = "#0f0e17";
-                    })
-                    .catch(function(error) {
-                        alert("برجاء الضغط مرة أخرى أو التحقق من صلاحيات المتصفح.");
-                        console.log(error);
-                    });
-                }
-            };
+        // كود تشغيل الصوت وتحديث البث فور الضغط على الزر
+var startLiveBtn = document.getElementById('startRadioLiveBtn');
+if (startLiveBtn) {
+    startLiveBtn.onclick = function() {
+        if (player) {
+            // 👇 هنا نضع الكود الجديد لإجبار السيرفر على تخطي الكاش الميت 👇
+            player.src = window.location.origin + "/radio.mp3?t=" + Date.now();
+            player.load();
+            player.play()
+            .then(function() {
+                startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
+                startLiveBtn.style.background = "#00ebc7";
+                startLiveBtn.style.color = "#0f0e17";
+            })
+            .catch(function(error) {
+                alert("برجاء الضغط مرة أخرى أو التحقق من صلاحيات المتصفح.");
+                console.log(error);
+            });
         }
+    };
+}
+
     </script>
 </body>
 </html>
