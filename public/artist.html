@@ -10,7 +10,6 @@
         .artist-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .artist-badge { text-align: center; } 
         
-        /* 🛠️ تصحيح التداخل: جعل النص مرناً ومقاوماً للالتفاف على شاشات الموبايل */
         .artist-avatar { 
             background: #ff0055; 
             color: white; 
@@ -36,7 +35,15 @@
         .gallery-item { background: #0f0e17; border: 1px solid #2a283e; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; box-sizing: border-box; transition: 0.2s; } 
         .gallery-item:hover, .gallery-item.active-track { border-color: #00ebc7; background: rgba(0, 235, 199, 0.05); }
         .gallery-preview { width: 100%; height: 95px; background: #1f1d2e; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #2a283e; } 
-        .gallery-preview img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* 🛠️ تحسين جودة الصور وضمان تمددها بشكل متناسق ومنع الحظر */
+        .gallery-preview img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block;
+        }
+        
         .gallery-title { font-size: 11px; color: #fffffe; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } 
         .gallery-artist { font-size: 9px; color: #00ebc7; margin-top: 2px; }
         
@@ -92,19 +99,31 @@
         var sendChatBtn = document.getElementById('sendArtistChatBtn'); 
         var isPlaying = false; 
 
-        // 🛠️ تصحيح الصور المكسورة: حقن روابط حقيقية مباشرة ومضمونة بدلاً من الرابط الرئيسي لـ Unsplash
+        // 🛠️ حل مشكلة اختفاء الصور: استخدام روابط الصور المباشرة والمفتوحة والمقاومة للحظر من مصدر خارجي موثوق
         var myTracksDatabase = [
             {
                 id: 1,
                 title: "ألبوم الموسيقى الهادئة",
                 artist: "الملك كينج",
-                cover: "https://unsplash.com"
+                cover: "https://picsum.photos"
             },
             {
                 id: 2,
                 title: "بودكاست عواطف تونسية",
                 artist: "الملك كينج",
-                cover: "https://unsplash.com"
+                cover: "https://picsum.photos"
+            },
+            {
+                id: 3,
+                title: "جلسة راي مباشر",
+                artist: "الملك كينج",
+                cover: "https://picsum.photos"
+            },
+            {
+                id: 4,
+                title: "ميكس استوديو كينج",
+                artist: "الملك كينج",
+                cover: "https://picsum.photos"
             }
         ];
 
@@ -119,7 +138,7 @@
                 
                 item.innerHTML = `
                     <div class="gallery-preview">
-                        <img src="${track.cover}" alt="${track.title}">
+                        <img src="${track.cover}" alt="${track.title}" referrerpolicy="no-referrer">
                     </div>
                     <div class="gallery-title">${track.title}</div>
                     <div class="gallery-artist">${track.artist}</div>
@@ -133,7 +152,7 @@
             var clockEl = document.getElementById('clock');
             if (clockEl) {
                 var now = new Date();
-                clockEl.innerText = now.toTimeString().split(' ')[0];
+                clockEl.innerText = now.toTimeString().split(' ');
             }
         }, 1000);
 
@@ -169,16 +188,7 @@
 
         // تشغيل وإيقاف راديو الفنان
         if (toggleBtn) {
-            toggleBtn.onclick = function() {
-                if (!isPlaying) {
-                    toggleBtn.innerText = "⏸️ إيقاف البث المباشر";
-                    toggleBtn.classList.add('playing');
-                    isPlaying = true;
-                } else {
-                    toggleBtn.innerText = "▶️ تشغيل البث المباشر";
-                    toggleBtn.classList.remove('playing');
-                    isPlaying = false;
-}};}function sendStationLike() {alert("شكراً لتفاعلك! تم تسجيل إعجابك بالبث وعرضه في الاستوديو الرئيسي ❤️");}// جلب الشات والتعليقات الحيةfunction fetchChatMessages() {fetch(SERVER_URL + '/api/messages?t=' + Date.now()).then(function(res) { return res.json(); }).then(function(messages) {if (!chatMessages) return;chatMessages.innerHTML = "";if (Array.isArray(messages)) {messages.forEach(function(msg) {var div = document.createElement('div');div.style.marginBottom = "5px";var color = (msg.sender === "المذيع" || msg.sender.includes("النظام")) ? "#ff0055" : "#00ebc7";div.innerHTML = <b style="color: ${color}">${msg.sender}:</b> ${msg.text};chatMessages.appendChild(div);});chatMessages.scrollTop = chatMessages.scrollHeight;}}).catch(function(){});}if (sendChatBtn && chatInput) {sendChatBtn.onclick = function() {var text = chatInput.value.trim();if(text !== "") {chatInput.value = "";fetch(SERVER_URL + '/api/messages', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ sender: "الفنان", text: text })}).then(function() { fetchChatMessages(); });}};}setInterval(fetchChatMessages, 4000);fetchChatMessages();
+toggleBtn.onclick = function() {if (!isPlaying) {toggleBtn.innerText = "⏸️ إيقاف البث المباشر";toggleBtn.classList.add('playing');isPlaying = true;} else {toggleBtn.innerText = "▶️ تشغيل البث المباشر";toggleBtn.classList.remove('playing');isPlaying = false;}};}function sendStationLike() {alert("شكراً لتفاعلك! تم تسجيل إعجابك بالبث وعرضه في الاستوديو الرئيسي ❤️");}// جلب الشات والتعليقات الحيةfunction fetchChatMessages() {fetch(SERVER_URL + '/api/messages?t=' + Date.now()).then(function(res) { return res.json(); }).then(function(messages) {if (!chatMessages) return;chatMessages.innerHTML = "";if (Array.isArray(messages)) {messages.forEach(function(msg) {var div = document.createElement('div');div.style.marginBottom = "5px";var color = (msg.sender === "المذيع" || msg.sender.includes("النظام")) ? "#ff0055" : "#00ebc7";div.innerHTML = <b style="color: ${color}">${msg.sender}:</b> ${msg.text};chatMessages.appendChild(div);});chatMessages.scrollTop = chatMessages.scrollHeight;}}).catch(function(){});}if (sendChatBtn && chatInput) {sendChatBtn.onclick = function() {var text = chatInput.value.trim();if(text !== "") {chatInput.value = "";fetch(SERVER_URL + '/api/messages', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ sender: "الفنان", text: text })}).then(function() { fetchChatMessages(); });}};}setInterval(fetchChatMessages, 4000);fetchChatMessages();
 </script>
 </html>
 </body>
