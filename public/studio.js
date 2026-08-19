@@ -1,5 +1,5 @@
 var mediaRecorder = null;
-var localStream = null; // لتخزين البث المباشر وإغلاقه بالكامل لاحقاً
+var localStream = null; 
 var SERVER_URL = window.location.origin; 
 
 // 1. دالة إلغاء القفل الفوري وإظهار الاستوديو
@@ -26,7 +26,7 @@ window.addEventListener('DOMContentLoaded', function() {
             if (e) e.preventDefault(); 
             var pass = passInput ? passInput.value.trim() : "";
             
-            fetch(SERVER_URL + '/api/verify-password', {
+            fetch('/api/verify-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pass })
@@ -53,12 +53,11 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 }); 
 
-
-// دالة جلب وتحديث الشات والمستمعين في الاستوديو الرئيسي
+// 3. دالة جلب وتحديث الشات والمستمعين (مصحة بالكامل للمسارات النسبية الشغالة)
 function fetchChatAndStats() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (studioChatMessages) {
-        fetch(SERVER_URL + '/api/messages?t=' + Date.now())
+        fetch('/api/messages?t=' + Date.now())
         .then(function(res) { return res.json(); })
         .then(function(messages) {
             studioChatMessages.innerHTML = "";
@@ -68,12 +67,11 @@ function fetchChatAndStats() {
                     div.style.marginBottom = "8px";
                     div.style.textAlign = "right";
                     
-                    // تمييز الألوان بناءً على نوع مرسل الرسالة لسهولة القراءة والفرز للمذيع
                     var color = "#00ebc7"; 
                     if (msg.sender === "المذيع") {
                         color = "#ff0055";
                     } else if (msg.sender.includes("النظام")) {
-                        color = "#ffcc00"; // اللون الأصفر التنبيهي لإعجابات وتنبيهات النظام والـ FM
+                        color = "#ffcc00"; 
                     }
                     
                     var senderB = document.createElement('b');
@@ -81,7 +79,6 @@ function fetchChatAndStats() {
                     senderB.innerText = msg.sender + ": ";
                     
                     var textNode = document.createTextNode(msg.text);
-                    
                     div.appendChild(senderB);
                     div.appendChild(textNode);
                     studioChatMessages.appendChild(div);
@@ -91,14 +88,13 @@ function fetchChatAndStats() {
         }).catch(function(err) { console.log(err); });
     }
 
-    fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
+    fetch('/api/listeners-count?t=' + Date.now())
     .then(function(res) { return res.json(); })
     .then(function(data) {
         var listenersCountEl = document.getElementById('liveListeners');
         if (listenersCountEl && data.count !== undefined) listenersCountEl.innerText = data.count;
     }).catch(function() {});
 }
-
 
 // 4. دالة تشغيل الفواصل والـ Jingles
 function playStudioJingle(url) {
@@ -111,7 +107,7 @@ function playStudioJingle(url) {
     radioPlayer.play().catch(function() { console.log("محجوب محلياً والبث مستمر."); });
     radioPlayer.onended = function() {
       if (statusEl) statusEl.innerText = "إستعداد";
-      radioPlayer.src = SERVER_URL + "/radio.mp3";
+      radioPlayer.src = "/radio.mp3";
       radioPlayer.play().catch(function(){});
     };
   }
@@ -126,7 +122,7 @@ function initializeStudio() {
   var changePassBtn = document.getElementById('changePassBtn');
   var volumeSlider = document.getElementById('volumeSlider');
 
-  if (radioPlayer) { radioPlayer.src = SERVER_URL + "/radio.mp3"; }
+  if (radioPlayer) { radioPlayer.src = "/radio.mp3"; }
 
   // تحديث الشات والمستمعين دورياً كل 3 ثوانٍ
   setInterval(fetchChatAndStats, 3000);
@@ -141,7 +137,7 @@ function initializeStudio() {
     changePassBtn.onclick = function() {
       var val = document.getElementById('newPassInput').value.trim();
       if (!val) { alert("اكتب الرمز الجديد أولاً"); return; }
-      fetch(SERVER_URL + '/api/change-password', {
+      fetch('/api/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPassword: val })
@@ -152,7 +148,7 @@ function initializeStudio() {
   }
 
   if (startMicBtn) {
-    startMicBtn.addEventListener('click', function(e) {
+    startMicBtn.onclick = function(e) {
       if (e) e.preventDefault();
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })
@@ -164,29 +160,26 @@ function initializeStudio() {
             alert("فشل الوصول للميكروفون، يرجى إعطاء الصلاحية للموقع.");
         });
       } else {
-        alert("الميكروفون محظور! تأكد من استخدام رابط https:// الآمن.");
+        alert("الميكروفون محظور! تأكد من استخدام رابط الاستضافة الآمن HTTPS.");
       }
-    });
+    };
   }
 
   if (stopMicBtn) {
-    stopMicBtn.addEventListener('click', function(e) {
+    stopMicBtn.onclick = function(e) {
       if (e) e.preventDefault();
-      
       if (mediaRecorder && mediaRecorder.state !== "inactive") {
           mediaRecorder.stop();
       }
-      
       if (localStream) {
           localStream.getTracks().forEach(function(track) { track.stop(); });
       }
-      
       var statusEl = document.getElementById('currentStatus');
       if (statusEl) statusEl.innerText = "إستعداد";
       if (startMicBtn) startMicBtn.disabled = false;
       if (stopMicBtn) stopMicBtn.disabled = true;
-      fetch(SERVER_URL + '/api/stop-mic', { method: 'POST' });
-    });
+      fetch('/api/stop-mic', { method: 'POST' });
+    };
   }
 
   if (sendStudioChatBtn) {
@@ -197,7 +190,7 @@ function initializeStudio() {
       if (!text) return false;
       studioChatInput.value = "";
       
-      fetch(SERVER_URL + '/api/messages', {
+      fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender: "المذيع", text: text })
@@ -207,43 +200,45 @@ function initializeStudio() {
     };
   }
 
-  // 👇 كود ربط وإصلاح زر حفظ جدولة الألبومات (تمت إضافته هنا بداخل دالة التهيئة) 👇
   var saveSchedBtn = document.getElementById('saveSchedBtn');
   if (saveSchedBtn) {
       saveSchedBtn.onclick = function() {
           var day = document.getElementById('schedDay').value;
-          var time = document.getElementById('schedTime').value;
+          var time = document.getElementById('schedTime').value || "12:00";
           var fileInput = document.getElementById('albumFiles');
+          var coverInput = document.getElementById('albumCoverInput');
           
-          if (!time) { alert("الرجاء تحديد وقت البدء أولاً !"); return; }
+          var formData = new FormData();
+          formData.append("day", day);
+          formData.append("time", time);
           
           if (fileInput.files.length > 0) {
-              var formData = new FormData();
-              // نقوم بـ إرسال المتغيرات الإضافية ليتلقاها السيرفر مع الملف
-              formData.append("day", day);
-              formData.append("time", time);
               formData.append("audioFile", fileInput.files[0]);
-              
-              fetch(SERVER_URL + '/api/upload-album', {
-                  method: 'POST',
-                  body: formData
-              })
-              .then(function(res) { return res.json(); })
-              .then(function(data) {
-                  alert("تم رفع الملف وتثبيت جدول البث بنجاح !");
-                  fetchChatAndStats();
-              })
-              .catch(function() { alert("حدث خطأ أثناء رفع ألبوم الجدولة للسيرفر"); });
-          } else {
-              alert("الرجاء اختيار ملف صوتي أولاً لجدولته.");
           }
+          if (coverInput && coverInput.files && coverInput.files.length > 0) {
+              formData.append("albumCover", coverInput.files[0]);
+          } else if (fileInput.files.length === 0) {
+              alert("الرجاء اختيار ملف صوتي أو صورة لتحديث الاستوديو.");
+              return;
+          }
+          
+          fetch('/api/upload-album', {
+              method: 'POST',
+              body: formData
+          })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+              alert("تم تحديث البيانات ورفع الغلاف الإذاعي الجديد بنجاح! 🖼️🎵");
+              fetchChatAndStats();
+          })
+          .catch(function() { alert("حدث خطأ أثناء رفع البيانات للسيرفر."); });
       };
   }
 
   fetchChatAndStats();
 }
 
-// 6. دالة بث صوت المايكروفون للسيرفر بجودة واضحة
+// 6. دالة بث صوت المايكروفون المحدثة لملائمة الرأس التدفقي للسيرفر والموبايل
 function startRecording(stream) {
   var startMicBtn = document.getElementById('startMicBtn');
   var stopMicBtn = document.getElementById('stopMicBtn');
@@ -251,20 +246,25 @@ function startRecording(stream) {
   
   if (startMicBtn) startMicBtn.disabled = true;
   if (stopMicBtn) stopMicBtn.disabled = false;
-  if (statusEl) statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً...";
+  if (statusEl) {
+      statusEl.innerText = "🔴 الميكروفون المباشر نشط حالياً وعلى الهواء...";
+      statusEl.style.color = "#ff0055";
+  }
 
   var options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 };
   if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'audio/webm' }; }
 
-  mediaRecorder = new MediaRecorder(stream, options);
-  mediaRecorder.ondataavailable = function(e) {
-    if (e.data && e.data.size > 0) {
-      fetch(SERVER_URL + '/api/stream-mic', { 
-         method: 'POST', 
-         headers: { 'Content-Type': 'audio/webm' },
-         body: e.data 
-      }).catch(function(err){ console.log(err); });
-    }
-  };
-  mediaRecorder.start(200); 
-}
+  try {
+      mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder.ondataavailable = function(e) {
+        if (e.data && e.data.size > 0) {
+          fetch('/api/stream-mic', { 
+             method: 'POST', 
+             headers: { 'Content-Type': 'audio/webm;codecs=opus' },
+             body: e.data 
+          }).catch(function(err){ console.log(err); });
+        }
+};mediaRecorder.start(400); // إرسال نبضات سريعة جداً لمنع صمت القناة} catch(err) {console.error(err);}}
+        </script>
+</body>
+</html>
