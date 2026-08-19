@@ -325,19 +325,20 @@ logoContainer.innerText = "👑";
 }
 }
 if (Array.isArray(data.podcasts)) {
-var container = document.getElementById('globalPodcastsContainer');
-if (container) {
-container.innerHTML = "";
-data.podcasts.forEach(function(p) {
-var a = document.createElement('a');
-a.className = "podcast-link";
-a.href = p.url;
-a.target = "_blank";
-a.innerHTML = '🟢 ' + p.title + ' [اضغط هنا للاستماع]';
-container.appendChild(a);
-});
+    var container = document.getElementById('globalPodcastsContainer');
+    if (container) {
+        container.innerHTML = "";
+        data.podcasts.forEach(function(p) {
+            var a = document.createElement('a');
+            a.className = "podcast-link";
+            a.href = p.url;
+            a.target = "_blank"; // يفتح في علامة تبويب جديدة أو تطبيق سبوتيفاي مباشرة
+            a.innerHTML = '🟢 ' + p.title + ' <span style="color:#00ebc7">[اضغط هنا للاستماع]</span>';
+            container.appendChild(a);
+        });
+    }
 }
-}
+
 if (data.alerts && Array.isArray(data.alerts)) {
 data.alerts.forEach(function(alertItem) {
 showToast(alertItem.message);
