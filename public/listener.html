@@ -395,23 +395,7 @@ document.body.appendChild(div);
 setTimeout(function() { div.remove(); }, 4000);
 }
 
-// كود التحديث الديناميكي لروابط المشاركة المباشرة لمنع الحظر كلياً
-function initializeSecureSharing() {
-    var pageUrl = encodeURIComponent(window.location.href);
-    var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
-    
-    var fbBtn = document.getElementById('shareFB');
-    var waBtn = document.getElementById('shareWA');
-    var twBtn = document.getElementById('shareTW');
-    
-    if (fbBtn) fbBtn.href = "https://facebook.com" + pageUrl;
-    if (waBtn) waBtn.href = "https://whatsapp.com" + text + "%20" + pageUrl;
-    if (twBtn) twBtn.href = "https://twitter.com" + text + "&url=" + pageUrl;
-}
-
-// تشغيل الحقن الفوري للروابط عند فتح واجهة المستمع
-initializeSecureSharing();
-
+// 🛠️ الفكرة القاطعة: حقن الروابط التشعبية الصريحة داخل أوسمة الروابط مباشرة لمنع حظر الموبايل كلياًfunction initializeSecureSharingLinks() {var pageUrl = encodeURIComponent(window.location.href);var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");var fbBtn = document.getElementById('shareFB');var waBtn = document.getElementById('shareWA');var twBtn = document.getElementById('shareTW');if (fbBtn) fbBtn.href = "facebook.com" + pageUrl;if (waBtn) waBtn.href = "whatsapp.com" + text + "%20" + pageUrl;if (twBtn) twBtn.href = "twitter.com" + text + "&url=" + pageUrl;}
 
 setInterval(function() {
 fetchChatAndStats();
