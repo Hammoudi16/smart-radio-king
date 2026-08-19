@@ -117,12 +117,6 @@
         var sendChatBtn = document.getElementById('sendListenerChatBtn');
         var lastReactionTimestamp = Date.now(); 
 
-        if (player) { 
-            player.onerror = function() {
-                setTimeout(function() { player.load(); player.play().catch(function(){}); }, 5000);
-            };
-        }
-
         function fetchChatAndStats() {
             fetch(SERVER_URL + '/api/messages?t=' + Date.now())
             .then(function(res) { return res.json(); })
@@ -156,9 +150,8 @@
             fetch(SERVER_URL + '/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(reactions) {
-
-if (Array.isArray(reactions) && reactions.length > 0) {
-reactions.forEach(function(r) { createFloatingEmoji(r.emoji); });
+                if (Array.isArray(reactions) && reactions.length > 0) {
+                    reactions.forEach(function(r) { createFloatingEmoji(r.emoji); });
 lastReactionTimestamp = Date.now();
 }
 }).catch(function(){});
@@ -190,6 +183,7 @@ container.appendChild(a);
 }).catch(function(){});
 }
 
+// إصلاح وتأكيد إرسال تعليقات الدردشة
 if (sendChatBtn) {
 sendChatBtn.onclick = function(e) {
 if (e) e.preventDefault();
@@ -204,7 +198,7 @@ headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ sender: sender, text: text })
 })
 .then(function() { fetchChatAndStats(); })
-.catch(function(){});
+.catch(function(err){ console.error(err); });
 return false;
 };
 }
@@ -267,9 +261,7 @@ startLiveBtn.style.color = "#0f0e17";
 console.log("تنبيه المشغل اللحظي:", error);
 startLiveBtn.innerText = "🔊 جاري الاتصال المباشر بالقناة...";
 setTimeout(function(){
-player.play().catch(function(){
-alert("تنبيه البث: يرجى التأكد من أن المذيع قد قام ببدء تشغيل الميكروفون أونلاين أولاً من لوحة الاستوديو لإرسال الصوت.");
-});
+player.play().catch(function(){});
 }, 1000);
 });
 }
