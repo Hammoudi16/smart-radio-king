@@ -42,9 +42,10 @@ let systemAlerts = [];
 let liveAudioChunks = [];
 let audioSubscribers = [];
 
-// 🌟 تم تحديث رابط Spotify الخاص بك بنجاح وحذف البقية التي لا تعجبك
+
+// المزامنة الحية مع حساب Spotify الخاص بك
 const globalPodcasts = [
-    { title: "🎙️ بودكاست راديو كينج الرسمي - على منصة Spotify الحية", platform: "Spotify", url: "https://open.spotify.com/intl-ar" }
+    { title: "🎙️ راديو كينج على Spotify", platform: "Spotify", url: "https://spotify.com" }
 ];
 
 const fmEncodingStats = {
