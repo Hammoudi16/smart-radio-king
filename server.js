@@ -8,10 +8,17 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+// إعداد خيارات CORS الشاملة لضمان قبول الطلبات من أي جهاز وموقع دون حظر
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// مسار المايكروفون الخام
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
 app.use(express.static(__dirname));
@@ -23,30 +30,25 @@ if (!fs.existsSync(audioDir)) {
 }
 app.use(express.static(audioDir)); 
 
-// --- المتغيرات العامة للنظام (محدثة بالكامل ومصححة) ---
+// المتغيرات العامة للنظام
 let currentPassword = "123456";
-let subscribers = []; 
 let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
 let reactions = [];
 let isMicLive = false;
 let currentTrack = "jingle1.mp3"; 
 let lastTriggeredMinute = "";
 let radioSchedule = [];
-
-// متغير الصورة المحدث لحفظ غلاف الألبوم أونلاين أينما تشاء 🖼️
 let currentAlbumImage = ""; 
 
-// مصفوفة المشتركين المحدثة لضمان عمل الصوت على أندرويد وإنستغرام 📱
+let liveAudioChunks = [];
 let audioSubscribers = [];
 
-// إعداد بيانات البودكاست العالمي المحاكاة والمنصات الخارجية
 const globalPodcasts = [
     { title: "بودكاست راديو كينج - Spotify", platform: "Spotify", url: "https://spotify.com" },
     { title: "إذاعة كينج الثقافية - Apple Podcasts", platform: "Apple", url: "https://apple.com" },
     { title: "برنامج عواطف تونسية - Google Podcasts", platform: "Google", url: "https://google.com" }
 ];
 
-// إعداد بيانات هندسة البث ومعدل ترميز قناة الـ FM المحاكاة
 const fmEncodingStats = {
     frequency: "99.5 FM",
     bitrate: "128 kbps Stereo",
@@ -55,7 +57,6 @@ const fmEncodingStats = {
     rdsText: "Radio King Live - Premium Audio Quality"
 };
 
-// إعدادات التخزين باستخدام Multer ليدعم رفع الصور والأصوات
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
@@ -68,8 +69,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- مسارات الـ APIs والتحكم ---
-
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password;
     if (String(password) === String(currentPassword)) {
@@ -79,7 +78,12 @@ app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     }
 });
 
-app.get('/api/messages', (req, res) => { res.json(messages); });
+// مسارات المحادثات الحية
+app.get('/api/messages', (req, res) => { 
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(messages); 
+});
+
 app.post('/api/messages', (req, res) => {
     const { sender, text } = req.body;
     if (text) {
@@ -94,6 +98,7 @@ app.get('/api/reactions', (req, res) => {
     const filtered = reactions.filter(r => r.time > since);
     res.json(filtered);
 });
+
 app.post('/api/reactions', (req, res) => {
     const { emoji } = req.body;
     if (emoji) {
@@ -109,50 +114,20 @@ app.post('/api/like', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/current-album', (req, res) => {
-    res.json({ coverUrl: currentAlbumImage || "" });
-});
+app.get('/api/current-album', (req, res) => { res.json({ coverUrl: currentAlbumImage || "" }); });
+app.get('/api/radio-meta', (req, res) => { res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts }); });
 
-app.get('/api/radio-meta', (req, res) => {
-    res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts });
-});
+app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 1 }); });
 
-app.post('/api/upload-album', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), (req, res) => {
-    let filename = currentTrack;
-    if (req.files && req.files['audioFile']) filename = req.files['audioFile'].filename;
-    if (req.files && req.files['albumCover']) currentAlbumImage = '/' + req.files['albumCover'].filename;
-
-    const chosenDay = req.body.day !== undefined ? req.body.day : new Date().getDay();
-    const chosenTime = req.body.time !== undefined ? req.body.time : "20:00";
-    
-    radioSchedule.push({ day: Number(chosenDay), time: String(chosenTime), file: filename });
-    res.json({ success: true, file: filename, cover: currentAlbumImage });
-});
-
-app.get('/api/listeners-count', (req, res) => { 
-    res.json({ count: audioSubscribers.length || 1 }); 
-});
-
-
-// ذاكرة تخزين مؤقتة لتجميع قطع الصوت بشكل متناسق ومنع التقطع في الموبايل
-let liveAudioChunks = [];
-
+// استقبال بث المايكروفون وتجميعه
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     if (req.body && req.body.length > 0) {
-        // حفظ القطعة الصوتية الحالية في الذاكرة
         liveAudioChunks.push(req.body);
-        
-        // حماية الذاكرة: الاحتفاظ بآخر 150 قطعة صوتية فقط وتدوير البث
-        if (liveAudioChunks.length > 150) {
-            liveAudioChunks.shift();
-        }
+        if (liveAudioChunks.length > 200) liveAudioChunks.shift();
 
-        // ضخ الصوت فوراً لكل مستمع متصل الآن
         audioSubscribers.forEach(subscriber => {
-            try {
-                subscriber.write(req.body);
-            } catch (e) {
+            try { subscriber.write(req.body); } catch (e) {
                 audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
             }
         });
@@ -160,8 +135,10 @@ app.post('/api/stream-mic', (req, res) => {
     res.status(200).end();
 });
 
+app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
+
+// بث الراديو التدفقي المتواصل 24 ساعة بدون انقطاع
 app.get('/radio.mp3', (req, res) => {
-    // إرسال هيدر بث إذاعي قياسي معترف به من قبل جوجل كروم وأندرويد لمنع التوقف
     res.writeHead(200, {
         'Content-Type': 'audio/webm;codecs=opus', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -171,16 +148,15 @@ app.get('/radio.mp3', (req, res) => {
         'Transfer-Encoding': 'chunked'
     });
 
-    // إضافة المستمع للقائمة وضخ المخزون الصوتي المتوفر فوراً لمنع الصمت عند الاتصال أول مرة
     audioSubscribers.push(res);
     
+    // في حال عدم وجود بث مباشر من المايكروفون، نقوم بحقن تيار مستقر لمنع صمت المشغل
     if (liveAudioChunks.length > 0) {
         liveAudioChunks.forEach(chunk => {
             try { res.write(chunk); } catch(e){}
         });
     } else {
-        // عينة تنشيطية لتشغيل الـ Audio Context في الموبايل وتفادي نافذة الحظر
-        res.write(Buffer.alloc(2048)); 
+        res.write(Buffer.alloc(4096)); 
     }
 
     req.on('close', () => {
@@ -188,28 +164,5 @@ app.get('/radio.mp3', (req, res) => {
     });
 });
 
-
-// نظام فحص الجدولة الأسبوعية
-setInterval(() => {
-    const now = new Date();
-    const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
-    const [hours, minutes] = localTimeStr.split(':');
-    const currentTime = `${hours}:${minutes}`;
-    const currentDay = now.getDay();
-    
-    if (currentTime === lastTriggeredMinute) return;
-    for (let i = 0; i < radioSchedule.length; i++) {
-        const event = radioSchedule[i];
-        if (Number(event.day) === Number(currentDay) && String(event.time) === String(currentTime)) {
-            lastTriggeredMinute = currentTime;
-            currentTrack = event.file;
-            break;
-        }
-    }
-}, 1000);
-
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
-    </script>
-</body>
-</html>
