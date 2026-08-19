@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📻 راديو كينج بث مباشر - استماع وتفاعل</title>
     <link rel="icon" type="image/png" href="https://icons8.com">
-    <style>
+       <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 20px; margin: 0; overflow-x: hidden; }
         .container { max-width: 600px; margin: 0 auto; padding-top: 10px; }
         .brand-header { text-align: center; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -41,7 +41,8 @@
             50% { transform: translateX(50px) scale(1.1); }
             100% { bottom: 105vh; opacity: 0; transform: translateX(-50px) scale(1); }
         }
-                /* مؤشر التحميل الدائري */
+
+        /* 👇 كود مؤشر التحميل الدائري المضاف حديثاً 👇 */
         .spinner {
             display: inline-block;
             width: 16px;
@@ -50,14 +51,13 @@
             border-radius: 50%;
             border-top-color: #fffffe;
             animation: spin 0.8s linear infinite;
-            margin-left: 8px; /* مسافة بين الدائرة والنص العربي */
+            margin-left: 8px;
             vertical-align: middle;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-
-    </style>
+    </style>    
 </head>
 <body>
     <div class="container">
