@@ -23,19 +23,42 @@ if (!fs.existsSync(audioDir)) {
 }
 app.use(express.static(audioDir)); 
 
+// المتغيرات العامة للنظام
 let currentPassword = "123456";
 let subscribers = []; 
 let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
 let reactions = [];
-let artistTracks = [];
 let isMicLive = false;
 let currentTrack = "jingle1.mp3"; 
 let lastTriggeredMinute = "";
 let radioSchedule = [];
+let currentAlbumImage = ""; 
+
+// إعداد بيانات البودكاست العالمي المحاكاة والمنصات الخارجية
+const globalPodcasts = [
+    { title: "بودكاست راديو كينج - Spotify", platform: "Spotify", url: "https://spotify.com" },
+    { title: "إذاعة كينج الثقافية - Apple Podcasts", platform: "Apple", url: "https://apple.com" },
+    { title: "برنامج عواطف تونسية - Google Podcasts", platform: "Google", url: "https://google.com" }
+];
+
+// إعداد بيانات هندسة البث ومعدل ترميز قناة الـ FM المحاكاة
+const fmEncodingStats = {
+    frequency: "99.5 FM",
+    bitrate: "128 kbps Stereo",
+    codec: "MP3 / AAC+ Dual Encoder",
+    signalStrength: "98%",
+    rdsText: "Radio King Live - Premium Audio Quality"
+};
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
-    filename: (req, file, cb) => { cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); }
+    filename: (req, file, cb) => { 
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, 'current_album_cover' + path.extname(file.originalname));
+        } else {
+            cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); 
+        }
+    }
 });
 const upload = multer({ storage: storage });
 
@@ -58,10 +81,6 @@ app.post('/api/messages', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/listeners-count', (req, res) => { 
-    res.json({ count: subscribers.length || 1 }); 
-});
-
 app.get('/api/reactions', (req, res) => {
     const since = parseInt(req.query.since) || 0;
     const filtered = reactions.filter(r => r.time > since);
@@ -76,19 +95,34 @@ app.post('/api/reactions', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "لم يتم استلام ملف الألبوم" });
-    const filename = req.file.filename;
+app.post('/api/like', (req, res) => {
+    messages.push({ sender: "النظام 🎯", text: "❤️ تفاعل إعجاب جديد وصل الآن للاستوديو!", time: Date.now() });
+    if (messages.length > 50) messages.shift();
+    res.json({ success: true });
+});
+
+app.get('/api/current-album', (req, res) => {
+    res.json({ coverUrl: currentAlbumImage || "" });
+});
+
+// مسار جلب تفاصيل هندسة الـ FM والبودكاست
+app.get('/api/radio-meta', (req, res) => {
+    res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts });
+});
+
+app.post('/api/upload-album', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), (req, res) => {
+    let filename = currentTrack;
+    if (req.files && req.files['audioFile']) filename = req.files['audioFile'].filename;
+    if (req.files && req.files['albumCover']) currentAlbumImage = '/' + req.files['albumCover'].filename;
+
     const chosenDay = req.body.day !== undefined ? req.body.day : new Date().getDay();
     const chosenTime = req.body.time !== undefined ? req.body.time : "20:00";
     
-    radioSchedule.push({
-        day: Number(chosenDay),
-        time: String(chosenTime),
-        file: filename
-    });
-    res.json({ success: true, file: filename });
+    radioSchedule.push({ day: Number(chosenDay), time: String(chosenTime), file: filename });
+    res.json({ success: true, file: filename, cover: currentAlbumImage });
 });
+
+app.get('/api/listeners-count', (req, res) => { res.json({ count: subscribers.length || 1 }); });
 
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
@@ -99,33 +133,19 @@ app.post('/api/stream-mic', (req, res) => {
     res.status(200).end();
 });
 
-app.post('/api/stop-mic', (req, res) => {
-    isMicLive = false;
-    res.json({ success: true });
-});
+app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
 
-// 👇 التعديل الجذري: البث المباشر الذكي والمتوافق مع السيرفر الحالي لمنع الصمت 👇
 app.get('/radio.mp3', (req, res) => {
     let trackPath = path.join(audioDir, currentTrack);
+    if (!fs.existsSync(trackPath)) trackPath = path.join(audioDir, 'jingle1.mp3');
     
-    // إذا لم يجد الملف المجدول، يقرأ ملف jingle1.mp3 تلقائياً
-    if (!fs.existsSync(trackPath)) {
-        trackPath = path.join(audioDir, 'jingle1.mp3');
-    }
-    
-    // إذا كان المجلد فارغاً تماماً، يسحب السيرفر ملفاً حقيقياً ومضموناً بنسبة 100% من الإنترنت لبثه للمستمعين دون توقف
     if (!fs.existsSync(trackPath) || fs.statSync(trackPath).size <= 10000) {
         const https = require('https');
         const fallbackUrl = "https://soundhelix.com";
-        
         res.writeHead(200, { 'Content-Type': 'audio/mpeg' });
-        https.get(fallbackUrl, (externalRes) => {
-            externalRes.pipe(res);
-        }).on('error', () => { res.end(); });
+        https.get(fallbackUrl, (externalRes) => { externalRes.pipe(res); }).on('error', () => { res.end(); });
         return;
     }
-
-    // إرسال الملف الحقيقي المرفوع بطريقة التدفق المستقر والآمن المتوافق مع الهواتف والاستضافة مجاناً
     const stat = fs.statSync(trackPath);
     res.writeHead(200, {
         'Content-Type': 'audio/mpeg',
@@ -133,12 +153,10 @@ app.get('/radio.mp3', (req, res) => {
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-cache, no-store, must-revalidate'
     });
-    
     const readStream = fs.createReadStream(trackPath);
     readStream.pipe(res);
 });
 
-// دالة فحص مواعيد الألبومات وتحديث الأغنية الحالية تلقائياً
 setInterval(() => {
     const now = new Date();
     const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
@@ -147,19 +165,15 @@ setInterval(() => {
     const currentDay = now.getDay();
     
     if (currentTime === lastTriggeredMinute) return;
-    
     for (let i = 0; i < radioSchedule.length; i++) {
         const event = radioSchedule[i];
         if (Number(event.day) === Number(currentDay) && String(event.time) === String(currentTime)) {
             lastTriggeredMinute = currentTime;
-            currentTrack = event.file; // تغيير الأغنية فوراً في دالة البث
-            console.log(`[جدولة] تشغيل: ${currentTrack}`);
+            currentTrack = event.file;
             break;
         }
     }
 }, 1000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
