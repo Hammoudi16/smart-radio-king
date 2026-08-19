@@ -280,26 +280,34 @@
 
 
         // تصحيح وتأمين زر تشغيل الصوت وإجبار المتصفح على البث الفوري
-        var startLiveBtn = document.getElementById('startRadioLiveBtn');
+                var startLiveBtn = document.getElementById('startRadioLiveBtn');
         if (startLiveBtn) {
             startLiveBtn.onclick = function() {
                 if (player) {
-                    // ربط رابط الراديو الفعلي مع إضافة طابع زمني لتخطي الكاش الميت في الموبايل
-                    player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
+                    // إيقاف وتصفير المشغل أولاً لتهيئة المتصفح
+                    player.pause();
+                    player.src = "";
                     player.load();
+
+                    // تشغيل البث المباشر الفعلي مع منع الكاش تماماً
+                    player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
+                    player.type = "audio/webm;codecs=opus"; // تحديد نوع الترميز ليتوافق مع المايكروفون المرفوع
+                    
                     player.play()
                     .then(function() {
-                        startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
+                        startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن...";
                         startLiveBtn.style.background = "#00ebc7";
                         startLiveBtn.style.color = "#0f0e17";
                     })
                     .catch(function(error) {
-                        alert("يرجى الضغط مرة أخرى أو التحقق من صلاحيات الصوت بالمتصفح.");
-                        console.log("خطأ تشغيل:", error);
+                        // إذا تم فتح الرابط داخل إنستغرام، يرجى توجيهه لفتحه في كروم الخارجي
+                        alert("تنبيه: إذا كنت تستخدم إنستغرام، اضغط على الـ 3 نقاط أعلى اليسار واختر 'الفتح في المتصفح الافتراضي / Chrome' ليعمل الصوت بسلاسة.");
+                        console.log("خطأ التشغيل:", error);
                     });
                 }
             };
         }
+
 
         if (chatInput) {
             chatInput.addEventListener('keypress', function(e) {
