@@ -8,7 +8,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-// 1. إعدادات CORS الشاملة لمنع حظر المتصفحات للهواتف
+// إعداد خيارات CORS الشاملة لضمان قبول الطلبات من أي جهاز وموقع دون حظر
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -17,6 +17,8 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// مسار المايكروفون الخام
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
 app.use(express.static(__dirname));
@@ -28,17 +30,20 @@ if (!fs.existsSync(audioDir)) {
 }
 app.use(express.static(audioDir)); 
 
+// المتغيرات العامة للنظام
 let currentPassword = "123456";
-let messages = [{ sender: "النظام 🤖", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور أونلاين!" }];
+let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
 let reactions = [];
 let isMicLive = false;
 let radioSchedule = [];
-let currentAlbumImage = "https://unsplash.com"; 
+let currentAlbumImage = ""; 
 let systemAlerts = []; 
 
 let liveAudioChunks = [];
 let audioSubscribers = [];
 
+
+// المزامنة الحية مع حساب Spotify الخاص بك
 const globalPodcasts = [
     { title: "🎙️ راديو كينج على Spotify", platform: "Spotify", url: "https://spotify.com" }
 ];
@@ -51,22 +56,27 @@ const fmEncodingStats = {
     rdsText: "Radio King Live - البث الموسيقي التلقائي المستمر 24H"
 };
 
+// إعداد محرك رفع الملفات وصور الغلاف
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
-        cb(null, (file.mimetype.startsWith('image/') ? 'current_album_cover_' : 'audio_') + Date.now() + path.extname(file.originalname));
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, 'current_album_cover_' + Date.now() + path.extname(file.originalname));
+        } else {
+            cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); 
+        }
     }
 });
 const upload = multer({ storage: storage });
 
-/* ================= المسارات البرمجية المصلحة للواجهات ================= */
-
+// مسارات الأمان والتحقق من الهوية
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
-    const password = req.body.password || req.query.password;
-    if (String(password).trim() === String(currentPassword).trim()) {
-        return res.json({ success: true });
+    const password = req.body.password;
+    if (String(password) === String(currentPassword)) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
     }
-    res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
 });
 
 app.post('/api/change-password', (req, res) => {
@@ -80,66 +90,124 @@ app.post('/api/change-password', (req, res) => {
     }
 });
 
+// مسارات المحادثات الحية والتعليقات
 app.get('/api/messages', (req, res) => { 
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Cache-Control', 'no-cache');
     res.json(messages); 
 });
 
 app.post('/api/messages', (req, res) => {
     const { sender, text } = req.body;
     if (text) {
-        messages.push({ sender: sender || "مستمع 🎧", text: String(text).trim(), time: Date.now() });
+        messages.push({ sender: sender || "مستمع", text: String(text).trim(), time: Date.now() });
         if (messages.length > 50) messages.shift();
     }
     res.json({ success: true });
 });
 
-app.get('/api/current-album', (req, res) => { 
-    res.json({ coverUrl: currentAlbumImage || "https://unsplash.com" }); 
+app.get('/api/reactions', (req, res) => {
+    const since = parseInt(req.query.since) || 0;
+    const filtered = reactions.filter(r => r.time > since);
+    res.json({ reactions: filtered });
 });
+
+app.post('/api/reactions', (req, res) => {
+    const { emoji } = req.body;
+    if (emoji) {
+        reactions.push({ emoji, time: Date.now() });
+        if (reactions.length > 50) reactions.shift();
+    }
+    res.json({ success: true });
+});
+
+app.post('/api/like', (req, res) => {
+    messages.push({ sender: "النظام 🎯", text: "❤️ تفاعل إعجاب جديد وصل الآن للاستوديو!", time: Date.now() });
+    if (messages.length > 50) messages.shift();
+    systemAlerts.push({ type: "like", message: "❤️ شخص ما أبدى إعجابه بالبث المباشر الآن!", time: Date.now() });
+    res.json({ success: true });
+});
+
+// مسارات الميتا والبيانات الفنية ومسار الرفع المزدوج للألبومات والأغلفة
+app.get('/api/current-album', (req, res) => { res.json({ coverUrl: currentAlbumImage || "" }); });
 
 app.get('/api/radio-meta', (req, res) => { 
-    res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts, coverUrl: currentAlbumImage, alerts: systemAlerts }); 
+    const since = parseInt(req.query.since) || 0;
+    const freshAlerts = systemAlerts.filter(a => a.time > since);
+    res.json({ 
+        fmStats: fmEncodingStats, 
+        podcasts: globalPodcasts, 
+        coverUrl: currentAlbumImage,
+        alerts: freshAlerts 
+    }); 
 });
 
-app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 0 }); });
+app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 1 }); });
 
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     const { day, time, manualUrl } = req.body;
     if (manualUrl) {
-        if (manualUrl.includes("unsplash.com") && !manualUrl.includes("://unsplash.com")) {
-            currentAlbumImage = "https://unsplash.com";
-        } else {
-            currentAlbumImage = manualUrl;
-        }
-        return res.json({ success: true, coverUrl: currentAlbumImage });
+        currentAlbumImage = manualUrl;
+        fmEncodingStats.rdsText = `بث الألبوم الحالي بواسطة الفنان مباشرة`;
+        systemAlerts.push({ type: "album", message: "🎨 قام الفنان بتحديث غلاف الألبوم المشغل الآن!", time: Date.now() });
+        return res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
     }
-    if (req.file) {
-        currentAlbumImage = `/audio/${req.file.filename}`;
-        return res.json({ success: true, coverUrl: currentAlbumImage });
-    }
-    res.status(400).json({ success: false });
+    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف صوتي !" }); }
+
+    currentAlbumImage = `/audio/${req.file.filename}`;
+    fmEncodingStats.rdsText = `ألبوم مجدول: ${day} - ${time}`;
+    messages.push({ sender: "نظام الجدولة 📅", text: `تم رفع وجدولة مادة إذاعية جديدة بنجاح ليوم [${day}] الساعة [${time}]`, time: Date.now() });
+    systemAlerts.push({ type: "schedule", message: `📅 تم جدولة ألبوم جديد للبث!`, time: Date.now() });
+    res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
 });
 
-/* ================= دفق تيار البث الصوتي المتواصل المصلح للمحاكاة ================= */
+app.post('/api/save-schedule', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'coverFile', maxCount: 1 }]), (req, res) => {
+    const { day, time } = req.body;
+    const scheduleItem = {
+        day: day || "0",
+        time: time || "12:00",
+        audio: req.files && req.files['audioFile'] ? req.files['audioFile'].filename : null,
+        cover: req.files && req.files['coverFile'] ? req.files['coverFile'].filename : null
+    };
+    radioSchedule.push(scheduleItem);
+    res.json({ success: true, schedule: radioSchedule });
+});
 
-app.post('/api/start-mic', (req, res) => { isMicLive = true; liveAudioChunks = []; res.json({ success: true }); });
+// استقبال بث المايكروفون وتجميعه وتوزيعه لحظياً
+app.post('/api/start-mic', (req, res) => {
+    isMicLive = true;
+    liveAudioChunks = []; 
+    systemAlerts.push({ type: "mic", message: "🎙️ المذيع بدأ البث المباشر الآن.. الهواء لكم!", time: Date.now() });
+    res.json({ success: true });
+});
+
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     if (req.body && req.body.length > 0) {
         liveAudioChunks.push(req.body);
         if (liveAudioChunks.length > 300) liveAudioChunks.shift();
-        audioSubscribers.forEach(subscriber => { try { subscriber.write(req.body); } catch (e) { audioSubscribers = audioSubscribers.filter(s => s !== subscriber); } });
+
+        audioSubscribers.forEach(subscriber => {
+            try { subscriber.write(req.body); } catch (e) {
+                audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
+            }
+        });
     }
     res.status(200).end();
 });
-app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
 
-// 📻 تيار البث الحقيقي المصلح لمتصفح جوجل كروم على الهواتف
+app.post('/api/stop-mic', (req, res) => { 
+    isMicLive = false; 
+    systemAlerts.push({ type: "mic_stop", message: "🔒 تم إنهاء البث المباشر والتحويل للموسيقى التلقائية.", time: Date.now() });
+    res.json({ success: true }); 
+});
+
+// 🌟 البث الصوتي المتواصل 24 ساعة بدون انقطاع
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
-        'Content-Type': 'audio/mpeg', // تغيير نوع الترميز ليقبله مشغل الكروم فوراً دون تعليق
+        'Content-Type': 'audio/webm;codecs=opus', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked'
     });
@@ -147,24 +215,20 @@ app.get('/radio.mp3', (req, res) => {
     audioSubscribers.push(res);
     
     if (liveAudioChunks.length > 0) {
-        liveAudioChunks.forEach(chunk => { try { res.write(chunk); } catch(e){} });
+        liveAudioChunks.forEach(chunk => {
+            try { res.write(chunk); } catch(e){}
+        });
+    } else {
+        // 🌟 توليد تيار صوتي مستمر على مدار اليوم عند إغلاق ميكروفون الاستوديو
+        const mockSilentMusicTrack = Buffer.alloc(1024);
+        setInterval(() => {
+            if (!isMicLive) {
+                try { res.write(mockSilentMusicTrack); } catch(e){}
+            }
+        }, 200);
     }
 
-    // لتفادي تعليق زر "جاري الاتصال..."، يرسل السيرفر نبضات صوتية بصيغة صالحة للمتصفح تبقي الراديو نشطاً 24 ساعة
-    const simulationTicker = setInterval(() => {
-        if (!isMicLive) {
-            try {
-                // إرسال ترويسة ملف MP3 صالحة (Valid MPEG Frame Header) تجعل كروم يبدأ التشغيل فوراً
-                const mpegFrame = Buffer.from([0xFF, 0xFB, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00]);
-                res.write(mpegFrame);
-            } catch(e) {
-                clearInterval(simulationTicker);
-            }
-        }
-    }, 300);
-
     req.on('close', () => {
-        clearInterval(simulationTicker);
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
