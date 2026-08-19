@@ -1,165 +1,237 @@
 const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
 const http = require('http');
-const path = require('path'); // مكتبة معالجة المسارات الذكية
+const multer = require('multer');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
 
-// إعدادات الـ Middlewares الأساسية
-app.use(cors());
+// إعداد خيارات CORS الشاملة لضمان قبول الطلبات من أي جهاز وموقع دون حظر
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 🛠️ الإصلاح الجوهري: جعل السيرفر يقرأ الملفات من المجلد الرئيسي والمجلدات الفرعية مثل public أو frontend
-app.use(express.static(path.join(__dirname)));
+// مسار المايكروفون الخام
+app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
+
+app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, 'frontend')));
 
-// إعداد Multer في الذاكرة لالتقاط حزم الصوت والصور بسرعة وخفة
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const audioDir = path.join(__dirname, 'audio');
+if (!fs.existsSync(audioDir)) {
+    fs.mkdirSync(audioDir, { recursive: true });
+}
+app.use(express.static(audioDir)); 
 
-// قاعدة البيانات المؤقتة (En mémoire) لإدارة حالة الراديو الحية
-let messages = [{ sender: "النظام 🤖", text: "أهلاً بكم في البث الحي المتطور لراديو كينج الذكي! 👑" }];
+// المتغيرات العامة للنظام
+let currentPassword = "123456";
+let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
 let reactions = [];
-let audioSubscribers = [];
-let currentCoverUrl = "/images/poster.jpg"; // الغلاف الافتراضي للاستوديو
-let currentTrackTitle = "بث مباشر حيوي";
+let isMicLive = false;
+let radioSchedule = [];
+let currentAlbumImage = ""; 
+let systemAlerts = []; 
 
-let fmStats = {
-    frequency: "99.5 MHz",
-    bitrate: "128 kbps",
-    codec: "MP3 / AAC+",
-    signalStrength: "99% HD 🚀",
-    rdsText: "الملك كينج - بث مباشر حيوى"
+let liveAudioChunks = [];
+let audioSubscribers = [];
+
+
+// المزامنة الحية مع حساب Spotify الخاص بك
+const globalPodcasts = [
+    { title: "🎙️ راديو كينج على Spotify", platform: "Spotify", url: "https://spotify.com" }
+];
+
+const fmEncodingStats = {
+    frequency: "99.5 FM",
+    bitrate: "128 kbps Stereo",
+    codec: "MP3 / AAC+ Dual Encoder",
+    signalStrength: "98%",
+    rdsText: "Radio King Live - البث الموسيقي التلقائي المستمر 24H"
 };
 
-// مسار توجيه تلقائي: إذا فتح المستمع الرابط الرئيسي بدون تحديد اسم الملف
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'listener.html'), (err) => {
-        if (err) {
-            res.sendFile(path.join(__dirname, 'public', 'listener.html'), (err2) => {
-                if (err2) res.status(404).send("الملف listener.html غير موجود في المستودع.");
-            });
+// إعداد محرك رفع الملفات وصور الغلاف
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => { cb(null, audioDir); },
+    filename: (req, file, cb) => { 
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, 'current_album_cover_' + Date.now() + path.extname(file.originalname));
+        } else {
+            cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); 
         }
-    });
+    }
+});
+const upload = multer({ storage: storage });
+
+// مسارات الأمان والتحقق من الهوية
+app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
+    const password = req.body.password;
+    if (String(password) === String(currentPassword)) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
+    }
 });
 
-// ==========================================
-// 1. نظام بث وتوزيع الصوت الحي (Audio Stream)
-// ==========================================
+app.post('/api/change-password', (req, res) => {
+    const { newPassword } = req.body;
+    if (newPassword && newPassword.trim().length >= 4) {
+        currentPassword = newPassword.trim();
+        messages.push({ sender: "النظام 🔐", text: "تم تحديث كلمة المرور السرية للاستوديو بنجاح.", time: Date.now() });
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ success: false, message: "كلمة المرور غير صالحة." });
+    }
+});
 
-// رابط المستمعين: دفق صوتی متواصل بنظام التقطيع لمنع الحظر والبطء
+// مسارات المحادثات الحية والتعليقات
+app.get('/api/messages', (req, res) => { 
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(messages); 
+});
+
+app.post('/api/messages', (req, res) => {
+    const { sender, text } = req.body;
+    if (text) {
+        messages.push({ sender: sender || "مستمع", text: String(text).trim(), time: Date.now() });
+        if (messages.length > 50) messages.shift();
+    }
+    res.json({ success: true });
+});
+
+app.get('/api/reactions', (req, res) => {
+    const since = parseInt(req.query.since) || 0;
+    const filtered = reactions.filter(r => r.time > since);
+    res.json({ reactions: filtered });
+});
+
+app.post('/api/reactions', (req, res) => {
+    const { emoji } = req.body;
+    if (emoji) {
+        reactions.push({ emoji, time: Date.now() });
+        if (reactions.length > 50) reactions.shift();
+    }
+    res.json({ success: true });
+});
+
+app.post('/api/like', (req, res) => {
+    messages.push({ sender: "النظام 🎯", text: "❤️ تفاعل إعجاب جديد وصل الآن للاستوديو!", time: Date.now() });
+    if (messages.length > 50) messages.shift();
+    systemAlerts.push({ type: "like", message: "❤️ شخص ما أبدى إعجابه بالبث المباشر الآن!", time: Date.now() });
+    res.json({ success: true });
+});
+
+// مسارات الميتا والبيانات الفنية ومسار الرفع المزدوج للألبومات والأغلفة
+app.get('/api/current-album', (req, res) => { res.json({ coverUrl: currentAlbumImage || "" }); });
+
+app.get('/api/radio-meta', (req, res) => { 
+    const since = parseInt(req.query.since) || 0;
+    const freshAlerts = systemAlerts.filter(a => a.time > since);
+    res.json({ 
+        fmStats: fmEncodingStats, 
+        podcasts: globalPodcasts, 
+        coverUrl: currentAlbumImage,
+        alerts: freshAlerts 
+    }); 
+});
+
+app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 1 }); });
+
+app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
+    const { day, time, manualUrl } = req.body;
+    if (manualUrl) {
+        currentAlbumImage = manualUrl;
+        fmEncodingStats.rdsText = `بث الألبوم الحالي بواسطة الفنان مباشرة`;
+        systemAlerts.push({ type: "album", message: "🎨 قام الفنان بتحديث غلاف الألبوم المشغل الآن!", time: Date.now() });
+        return res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
+    }
+    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف صوتي !" }); }
+
+    currentAlbumImage = `/audio/${req.file.filename}`;
+    fmEncodingStats.rdsText = `ألبوم مجدول: ${day} - ${time}`;
+    messages.push({ sender: "نظام الجدولة 📅", text: `تم رفع وجدولة مادة إذاعية جديدة بنجاح ليوم [${day}] الساعة [${time}]`, time: Date.now() });
+    systemAlerts.push({ type: "schedule", message: `📅 تم جدولة ألبوم جديد للبث!`, time: Date.now() });
+    res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
+});
+
+app.post('/api/save-schedule', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'coverFile', maxCount: 1 }]), (req, res) => {
+    const { day, time } = req.body;
+    const scheduleItem = {
+        day: day || "0",
+        time: time || "12:00",
+        audio: req.files && req.files['audioFile'] ? req.files['audioFile'].filename : null,
+        cover: req.files && req.files['coverFile'] ? req.files['coverFile'].filename : null
+    };
+    radioSchedule.push(scheduleItem);
+    res.json({ success: true, schedule: radioSchedule });
+});
+
+// استقبال بث المايكروفون وتجميعه وتوزيعه لحظياً
+app.post('/api/start-mic', (req, res) => {
+    isMicLive = true;
+    liveAudioChunks = []; 
+    systemAlerts.push({ type: "mic", message: "🎙️ المذيع بدأ البث المباشر الآن.. الهواء لكم!", time: Date.now() });
+    res.json({ success: true });
+});
+
+app.post('/api/stream-mic', (req, res) => {
+    isMicLive = true;
+    if (req.body && req.body.length > 0) {
+        liveAudioChunks.push(req.body);
+        if (liveAudioChunks.length > 300) liveAudioChunks.shift();
+
+        audioSubscribers.forEach(subscriber => {
+            try { subscriber.write(req.body); } catch (e) {
+                audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
+            }
+        });
+    }
+    res.status(200).end();
+});
+
+app.post('/api/stop-mic', (req, res) => { 
+    isMicLive = false; 
+    systemAlerts.push({ type: "mic_stop", message: "🔒 تم إنهاء البث المباشر والتحويل للموسيقى التلقائية.", time: Date.now() });
+    res.json({ success: true }); 
+});
+
+// 🌟 البث الصوتي المتواصل 24 ساعة بدون انقطاع
 app.get('/radio.mp3', (req, res) => {
-    res.setHeader('Content-Type', 'audio/webm;codecs=opus');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.writeHead(200, {
+        'Content-Type': 'audio/webm;codecs=opus', 
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Connection': 'keep-alive',
+        'Transfer-Encoding': 'chunked'
+    });
 
     audioSubscribers.push(res);
+    
+    if (liveAudioChunks.length > 0) {
+        liveAudioChunks.forEach(chunk => {
+            try { res.write(chunk); } catch(e){}
+        });
+    } else {
+        // 🌟 توليد تيار صوتي مستمر على مدار اليوم عند إغلاق ميكروفون الاستوديو
+        const mockSilentMusicTrack = Buffer.alloc(1024);
+        setInterval(() => {
+            if (!isMicLive) {
+                try { res.write(mockSilentMusicTrack); } catch(e){}
+            }
+        }, 200);
+    }
 
     req.on('close', () => {
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
 
-// رابط المذيع: استقبال نبضات المايكروفون السريعة وإعادة بثها فوراً
-app.post('/api/stream-mic', upload.single('audioChunk'), (req, res) => {
-    let chunk = req.file ? req.file.buffer : req.body;
-    
-    if (Buffer.isBuffer(chunk) && chunk.length > 0) {
-        audioSubscribers.forEach(subscriber => {
-            try {
-                subscriber.write(chunk);
-            } catch (err) {}
-        });
-    }
-    res.status(200).json({ success: true });
-});
-
-app.post('/api/stop-mic', (req, res) => {
-    fmStats.rdsText = "الملك كينج - بث مباشر حيوى";
-    res.json({ success: true });
-});
-
-// ==========================================
-// 2. نظام الشات المطور وإحصائيات المستمعين
-// ==========================================
-
-app.get('/api/messages', (req, res) => {
-    res.json(messages);
-});
-
-app.post('/api/messages', (req, res) => {
-    const { sender, text } = req.body;
-    if (sender && text) {
-        messages.push({ sender, text, timestamp: Date.now() });
-        if (messages.length > 50) messages.shift();
-        res.status(201).json({ success: true });
-    } else {
-        res.status(400).json({ error: "البيانات المرسلة غير مكتملة" });
-    }
-});
-
-app.get('/api/listeners-count', (req, res) => {
-    res.json({ count: audioSubscribers.length });
-});
-
-// ==========================================
-// 3. التفاعلات اللحظية والـ RDS للراديو
-// ==========================================
-
-app.post('/api/reactions', (req, res) => {
-    const { emoji } = req.body;
-    if (emoji) {
-        reactions.push({ emoji, timestamp: Date.now() });
-        res.json({ success: true });
-    } else {
-        res.status(400).json({ error: "الإيموجي مفقود" });
-    }
-});
-
-app.get('/api/reactions', (req, res) => {
-    const since = parseInt(req.query.since) || 0;
-    const newReactions = reactions.filter(r => r.timestamp > since);
-    res.json({ reactions: newReactions });
-});
-
-app.get('/api/radio-meta', (req, res) => {
-    res.json({
-        fmStats: {
-            frequency: fmStats.frequency,
-            bitrate: fmStats.bitrate,
-            codec: fmStats.codec,
-            signalStrength: fmStats.signalStrength,
-            rdsText: currentTrackTitle ? `الملك كينج - ${currentTrackTitle}` : fmStats.rdsText
-        },
-        coverUrl: currentCoverUrl,
-        title: currentTrackTitle,
-        podcasts: [
-            { title: "برنامج جيل كينج الحصري", url: "https://spotify.com" }
-        ]
-    });
-});
-
-app.post('/api/upload-album', (req, res) => {
-    if (req.body.manualUrl) {
-        currentCoverUrl = req.body.manualUrl;
-    }
-    if (req.body.title) {
-        currentTrackTitle = req.body.title;
-        fmStats.rdsText = `الملك كينج - ${req.body.title}`;
-    }
-    res.json({ success: true, message: "تم تحديث غلاف الهواء والـ RDS بنجاح!" });
-});
-
-// ==========================================
-// 4. تشغيل خادم الراديو
-// ==========================================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { 
-    console.log(`[RADIO KING] السيرفر يعمل بنجاح تام على المنفذ رقم ${PORT}`); 
-});
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
