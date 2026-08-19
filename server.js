@@ -23,7 +23,7 @@ if (!fs.existsSync(audioDir)) {
 }
 app.use(express.static(audioDir)); 
 
-// المتغيرات العامة للنظام
+// --- المتغيرات العامة للنظام (محدثة بالكامل ومصححة) ---
 let currentPassword = "123456";
 let subscribers = []; 
 let messages = [{ sender: "النظام", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }];
@@ -32,7 +32,12 @@ let isMicLive = false;
 let currentTrack = "jingle1.mp3"; 
 let lastTriggeredMinute = "";
 let radioSchedule = [];
+
+// متغير الصورة المحدث لحفظ غلاف الألبوم أونلاين أينما تشاء 🖼️
 let currentAlbumImage = ""; 
+
+// مصفوفة المشتركين المحدثة لضمان عمل الصوت على أندرويد وإنستغرام 📱
+let audioSubscribers = [];
 
 // إعداد بيانات البودكاست العالمي المحاكاة والمنصات الخارجية
 const globalPodcasts = [
@@ -50,6 +55,7 @@ const fmEncodingStats = {
     rdsText: "Radio King Live - Premium Audio Quality"
 };
 
+// إعدادات التخزين باستخدام Multer ليدعم رفع الصور والأصوات
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
@@ -61,6 +67,8 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+
+// --- مسارات الـ APIs والتحكم ---
 
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password;
@@ -105,7 +113,6 @@ app.get('/api/current-album', (req, res) => {
     res.json({ coverUrl: currentAlbumImage || "" });
 });
 
-// مسار جلب تفاصيل هندسة الـ FM والبودكاست
 app.get('/api/radio-meta', (req, res) => {
     res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts });
 });
@@ -122,70 +129,55 @@ app.post('/api/upload-album', upload.fields([{ name: 'audioFile', maxCount: 1 },
     res.json({ success: true, file: filename, cover: currentAlbumImage });
 });
 
-app.get('/api/listeners-count', (req, res) => { res.json({ count: subscribers.length || 1 }); });
+app.get('/api/listeners-count', (req, res) => { 
+    res.json({ count: audioSubscribers.length || 1 }); 
+});
+
+// --- هندسة البث الصوتي التدفقي المتطور وتفادي قيود أندرويد وإنستغرام ---
 
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     const audioBuffer = req.body;
-    for (let j = 0; j < subscribers.length; j++) {
-        try { subscribers[j].write(audioBuffer); } catch(e) {}
-    }
+    
+    // إرسال حزم الصوت الحية فوراً لكل متصفح متصل الآن بدون انقطاع
+    audioSubscribers.forEach(subscriber => {
+        try {
+            subscriber.write(audioBuffer);
+        } catch (e) {
+            audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
+        }
+    });
     res.status(200).end();
 });
 
-app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
-
-// مسار بث الراديو الحي المطور - يمنع سقوط المشغل في الموبايل نهائياً
-app.get('/radio.mp3', (req, res) => {
-    let trackPath = path.join(audioDir, currentTrack);
-    
-    // إذا لم تكن هناك أغنية مجدولة نشطة، نبحث عن أول ملف صالحة في مجلد الصوت
-    if (!fs.existsSync(trackPath)) {
-        const files = fs.readdirSync(audioDir).filter(f => f.endsWith('.mp3'));
-        if (files.length > 0) {
-            trackPath = path.join(audioDir, files[0]); // تشغيل أول ملف صوتي متوفر تلقائياً
-        } else {
-            trackPath = path.join(audioDir, 'jingle1.mp3');
-        }
-    }
-    
-    // إذا كان المجلد فارغاً تماماً ولا يوجد أي ملف صوتي، نستخدم رابط بديل حقيقي ومجرب بنسبة 100% لبث نغمة حية
-    if (!fs.existsSync(trackPath) || fs.statSync(trackPath).size <= 10000) {
-        const https = require('https');
-        // رابط بث راديو صوتي مستقر ومفتوح المصدر للاختبار لمنع صمت السيرفر
-        const fallbackUrl = "https://musopen.org"; 
-        
-        res.writeHead(200, { 
-            'Content-Type': 'audio/mpeg',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Connection': 'keep-alive'
-        });
-        
-        https.get(fallbackUrl, (externalRes) => {
-            externalRes.pipe(res);
-        }).on('error', (err) => { 
-            console.log("خطأ في جلب البث البديل:", err);
-            res.end(); 
-        });
-        return;
-    }
-
-    // إرسال التدفق الصوتي المستقر المتوافق مع الهواتف الذكية وحفظ طاقة الباقة
-    const stat = fs.statSync(trackPath);
-    res.writeHead(200, {
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': stat.size,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-    });
-    
-    const readStream = fs.createReadStream(trackPath);
-    readStream.pipe(res);
+app.post('/api/stop-mic', (req, res) => { 
+    isMicLive = false; 
+    res.json({ success: true }); 
 });
 
+app.get('/radio.mp3', (req, res) => {
+    // إجبار متصفحات الموبايل على قراءة الرابط كـ تيار بث حي مستمر وليس كملف مؤقت
+    res.writeHead(200, {
+        'Content-Type': 'audio/webm;codecs=opus', 
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Connection': 'keep-alive',
+        'Transfer-Encoding': 'chunked'
+    });
 
+    // إضافة المستمع إلى مصفوفة الضخ الحي المشترك
+    audioSubscribers.push(res);
+
+    // حقنة تنشيط أولية تمنع ظهور نافذة التنبيه الخطأ في كروم
+    res.write(Buffer.alloc(1024));
+
+    req.on('close', () => {
+        audioSubscribers = audioSubscribers.filter(s => s !== res);
+    });
+});
+
+// نظام فحص الجدولة الأسبوعية
 setInterval(() => {
     const now = new Date();
     const localTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Tunis', hour12: false });
