@@ -140,6 +140,7 @@ var chatMessages = document.getElementById('listenerChatMessages');
 var chatInput = document.getElementById('listenerChatInput');
 var nameInput = document.getElementById('listenerNameInput');
 var sendChatBtn = document.getElementById('sendListenerChatBtn');
+var liveCountEl = document.getElementById('listenerLiveCount');
 
 var isPlaying = false;
 var lastReactionTimestamp = Date.now();
@@ -147,10 +148,24 @@ var audioCtx = null;
 var analyser = null;
 var source = null;
 
+function showToast(message) {
+var container = document.getElementById('toastContainer');
+if (!container) return;
+var toast = document.createElement('div');
+toast.className = 'toast-alert';
+toast.innerText = message;
+container.appendChild(toast);
+setTimeout(function() {
+toast.style.animation = "fadeOutMobile 0.4s ease-in forwards";
+setTimeout(function() { toast.remove(); }, 400);
+}, 4000);
+}
+
 function appendEmoji(emoji) {
 if (chatInput) {
 chatInput.value += emoji;
 chatInput.focus();
+}
 }
 
 if (startLiveBtn) {
@@ -345,5 +360,6 @@ setTimeout(function() { div.remove(); }, 4000);
 setInterval(function() { fetchChatAndStats(); fetchRadioMeta(); }, 3000);
 fetchChatAndStats();
 fetchRadioMeta();
+
 
 
