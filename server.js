@@ -8,6 +8,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
+// 1. إعدادات CORS الشاملة لمنع حظر المتصفحات للهواتف
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -53,24 +54,19 @@ const fmEncodingStats = {
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, 'current_album_cover_' + Date.now() + path.extname(file.originalname));
-        } else {
-            cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); 
-        }
+        cb(null, (file.mimetype.startsWith('image/') ? 'current_album_cover_' : 'audio_') + Date.now() + path.extname(file.originalname));
     }
 });
 const upload = multer({ storage: storage });
 
-/* ================= ROUTES API STANDARDS ================= */
+/* ================= المسارات البرمجية المصلحة للواجهات ================= */
 
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password || req.query.password;
     if (String(password).trim() === String(currentPassword).trim()) {
         return res.json({ success: true });
-    } else {
-        return res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
     }
+    res.status(401).json({ success: false, message: "كلمة المرور غير صحيحة!" });
 });
 
 app.post('/api/change-password', (req, res) => {
@@ -125,38 +121,24 @@ app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     res.status(400).json({ success: false });
 });
 
-/* ================= STREAM AUDIO LIVE AUTOMATIQUE ================= */
+/* ================= دفق تيار البث الصوتي المتواصل المصلح للمحاكاة ================= */
 
-app.post('/api/start-mic', (req, res) => {
-    isMicLive = true;
-    liveAudioChunks = []; 
-    res.json({ success: true });
-});
-
+app.post('/api/start-mic', (req, res) => { isMicLive = true; liveAudioChunks = []; res.json({ success: true }); });
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     if (req.body && req.body.length > 0) {
         liveAudioChunks.push(req.body);
         if (liveAudioChunks.length > 300) liveAudioChunks.shift();
-
-        audioSubscribers.forEach(subscriber => {
-            try { subscriber.write(req.body); } catch (e) {
-                audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
-            }
-        });
+        audioSubscribers.forEach(subscriber => { try { subscriber.write(req.body); } catch (e) { audioSubscribers = audioSubscribers.filter(s => s !== subscriber); } });
     }
     res.status(200).end();
 });
+app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
 
-app.post('/api/stop-mic', (req, res) => { 
-    isMicLive = false; 
-    res.json({ success: true }); 
-});
-
-// FLUX ADAPTÉ POUR DÉBLOQUER CHROME MOBILE IMMÉDIATEMENT
+// 📻 تيار البث الحقيقي المصلح لمتصفح جوجل كروم على الهواتف
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
-        'Content-Type': 'audio/mpeg', 
+        'Content-Type': 'audio/mpeg', // تغيير نوع الترميز ليقبله مشغل الكروم فوراً دون تعليق
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked'
@@ -164,28 +146,25 @@ app.get('/radio.mp3', (req, res) => {
 
     audioSubscribers.push(res);
     
-    // Si le micro du studio émet du son en direct
-    if (isMicLive && liveAudioChunks.length > 0) {
-        liveAudioChunks.forEach(chunk => {
-            try { res.write(chunk); } catch(e){}
-        });
+    if (liveAudioChunks.length > 0) {
+        liveAudioChunks.forEach(chunk => { try { res.write(chunk); } catch(e){} });
     }
 
-    // Système automatique anti-blocage : Envoie des pulsations audio MPEG valides toutes les 300ms
-    const fallbackTicker = setInterval(() => {
+    // لتفادي تعليق زر "جاري الاتصال..."، يرسل السيرفر نبضات صوتية بصيغة صالحة للمتصفح تبقي الراديو نشطاً 24 ساعة
+    const simulationTicker = setInterval(() => {
         if (!isMicLive) {
             try {
-                // Trame audio binaire standard lue immédiatement par le décodeur Google Chrome
-                const standardMpegFrame = Buffer.from([0xFF, 0xFB, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00]);
-                res.write(standardMpegFrame);
+                // إرسال ترويسة ملف MP3 صالحة (Valid MPEG Frame Header) تجعل كروم يبدأ التشغيل فوراً
+                const mpegFrame = Buffer.from([0xFF, 0xFB, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00]);
+                res.write(mpegFrame);
             } catch(e) {
-                clearInterval(fallbackTicker);
+                clearInterval(simulationTicker);
             }
         }
     }, 300);
 
     req.on('close', () => {
-        clearInterval(fallbackTicker);
+        clearInterval(simulationTicker);
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
