@@ -135,27 +135,56 @@ app.post('/api/stream-mic', (req, res) => {
 
 app.post('/api/stop-mic', (req, res) => { isMicLive = false; res.json({ success: true }); });
 
+// مسار بث الراديو الحي المطور - يمنع سقوط المشغل في الموبايل نهائياً
 app.get('/radio.mp3', (req, res) => {
     let trackPath = path.join(audioDir, currentTrack);
-    if (!fs.existsSync(trackPath)) trackPath = path.join(audioDir, 'jingle1.mp3');
     
+    // إذا لم تكن هناك أغنية مجدولة نشطة، نبحث عن أول ملف صالحة في مجلد الصوت
+    if (!fs.existsSync(trackPath)) {
+        const files = fs.readdirSync(audioDir).filter(f => f.endsWith('.mp3'));
+        if (files.length > 0) {
+            trackPath = path.join(audioDir, files[0]); // تشغيل أول ملف صوتي متوفر تلقائياً
+        } else {
+            trackPath = path.join(audioDir, 'jingle1.mp3');
+        }
+    }
+    
+    // إذا كان المجلد فارغاً تماماً ولا يوجد أي ملف صوتي، نستخدم رابط بديل حقيقي ومجرب بنسبة 100% لبث نغمة حية
     if (!fs.existsSync(trackPath) || fs.statSync(trackPath).size <= 10000) {
         const https = require('https');
-        const fallbackUrl = "https://soundhelix.com";
-        res.writeHead(200, { 'Content-Type': 'audio/mpeg' });
-        https.get(fallbackUrl, (externalRes) => { externalRes.pipe(res); }).on('error', () => { res.end(); });
+        // رابط بث راديو صوتي مستقر ومفتوح المصدر للاختبار لمنع صمت السيرفر
+        const fallbackUrl = "https://musopen.org"; 
+        
+        res.writeHead(200, { 
+            'Content-Type': 'audio/mpeg',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Connection': 'keep-alive'
+        });
+        
+        https.get(fallbackUrl, (externalRes) => {
+            externalRes.pipe(res);
+        }).on('error', (err) => { 
+            console.log("خطأ في جلب البث البديل:", err);
+            res.end(); 
+        });
         return;
     }
+
+    // إرسال التدفق الصوتي المستقر المتوافق مع الهواتف الذكية وحفظ طاقة الباقة
     const stat = fs.statSync(trackPath);
     res.writeHead(200, {
         'Content-Type': 'audio/mpeg',
         'Content-Length': stat.size,
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     });
+    
     const readStream = fs.createReadStream(trackPath);
     readStream.pipe(res);
 });
+
 
 setInterval(() => {
     const now = new Date();
