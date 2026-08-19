@@ -134,23 +134,25 @@ app.get('/api/listeners-count', (req, res) => {
 });
 
 
-// ذاكرة تخزين حزم المايكروفون الحية لحفظ آخر قطع صوتية متصلة
-let liveAudioBuffer = Buffer.alloc(0);
+// ذاكرة تخزين مؤقتة لتجميع قطع الصوت بشكل متناسق ومنع التقطع في الموبايل
+let liveAudioChunks = [];
 
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
     if (req.body && req.body.length > 0) {
-        // دمج دفقات الميكروفون المباشرة في الـ Buffer لمنع التقطع
-        liveAudioBuffer = Buffer.concat([liveAudioBuffer, req.body]);
+        // حفظ القطعة الصوتية الحالية في الذاكرة
+        liveAudioChunks.push(req.body);
         
-        // حماية الذاكرة العشوائية للسيرفر بمسح الأجزاء القديمة جداً وتدوير البث
-        if (liveAudioBuffer.length > 15 * 1024 * 1024) {
-            liveAudioBuffer = liveAudioBuffer.subarray(5 * 1024 * 1024);
+        // حماية الذاكرة: الاحتفاظ بآخر 150 قطعة صوتية فقط وتدوير البث
+        if (liveAudioChunks.length > 150) {
+            liveAudioChunks.shift();
         }
 
-        // توزيع الحزمة الفورية للمستمعين المتصلين حالياً
+        // ضخ الصوت فوراً لكل مستمع متصل الآن
         audioSubscribers.forEach(subscriber => {
-            try { subscriber.write(req.body); } catch (e) {
+            try {
+                subscriber.write(req.body);
+            } catch (e) {
                 audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
             }
         });
@@ -159,22 +161,26 @@ app.post('/api/stream-mic', (req, res) => {
 });
 
 app.get('/radio.mp3', (req, res) => {
-    // إرسال هيدر بث إذاعي تدفقي قياسي معترف به من قبل جوجل كروم وأندرويد
+    // إرسال هيدر بث إذاعي قياسي معترف به من قبل جوجل كروم وأندرويد لمنع التوقف
     res.writeHead(200, {
         'Content-Type': 'audio/webm;codecs=opus', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
         'Connection': 'keep-alive',
-        'Accept-Ranges': 'none'
+        'Transfer-Encoding': 'chunked'
     });
 
-    // إضافة المستمع للقائمة وضخ المخزون المبدئي فوراً لمنع الصمت عند الاتصال أول مرة
+    // إضافة المستمع للقائمة وضخ المخزون الصوتي المتوفر فوراً لمنع الصمت عند الاتصال أول مرة
     audioSubscribers.push(res);
-    if (liveAudioBuffer.length > 0) {
-        res.write(liveAudioBuffer);
+    
+    if (liveAudioChunks.length > 0) {
+        liveAudioChunks.forEach(chunk => {
+            try { res.write(chunk); } catch(e){}
+        });
     } else {
-        res.write(Buffer.alloc(2048)); // عينة تنشيطية
+        // عينة تنشيطية لتشغيل الـ Audio Context في الموبايل وتفادي نافذة الحظر
+        res.write(Buffer.alloc(2048)); 
     }
 
     req.on('close', () => {
