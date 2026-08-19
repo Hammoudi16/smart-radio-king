@@ -51,20 +51,23 @@
             <button class="btn-like-station" onclick="sendStationLike()">❤️ أعجبتني هذه المادة الإذاعية</button> 
         </div> 
 
-        <div class="card"> 
+                <div class="card"> 
             <h3>🎵 معرض الألبومات وبودكاست المحطة</h3> 
             <p style="font-size:10px; color:#a7a6ba; text-align:center; margin-top:-5px;">اضغط على أي غلاف لتحديث مظهر الإذاعة للمستمعين فوراً</p>
             <div class="gallery-grid" id="tracksGallery"> 
-                <div class="gallery-item" onclick="updateRadioCover('/audio/album1.jpg')"> 
-                    <div class="gallery-preview" id="albumPreview">🎵</div> 
+                <!-- الألبوم الأول المطور بمحاكاة أيقونة نصية بدون صور مكسورة -->
+                <div class="gallery-item" onclick="updateRadioCover('https://unsplash.com', 'ألبوم الموسيقى الهادئة')"> 
+                    <div class="gallery-preview" style="background: linear-gradient(45deg, #3a2856, #ff0055); color: #fffffe; font-size: 28px;">🎵</div> 
                     <div class="gallery-title">ألبوم الموسيقى الهادئة</div> 
                 </div> 
-                <div class="gallery-item" onclick="updateRadioCover('/audio/podcast1.jpg')"> 
-                    <div class="gallery-preview" id="podcastPreview">🎙️</div> 
+                <!-- البودكاست الثاني المطور بمحاكاة أيقونة نصية بدون صور مكسورة -->
+                <div class="gallery-item" onclick="updateRadioCover('https://unsplash.com', 'بودكاست عواطف تونسية')"> 
+                    <div class="gallery-preview" style="background: linear-gradient(45deg, #120c1f, #00ebc7); color: #fffffe; font-size: 28px;">🎙️</div> 
                     <div class="gallery-title">بودكاست عواطف تونسية</div> 
                 </div> 
             </div> 
-        </div> 
+        </div>
+
 
         <div class="card"> 
             <h3>💬 دردشة المستمعين الحية</h3> 
