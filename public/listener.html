@@ -113,13 +113,19 @@
         </div>
 
         <div class="card">
-            <h3>🔗 مشاركة الإذاعة مع الأصدقاء</h3>
-            <div class="share-row">
-                <button class="btn-share share-wa" onclick="shareOnSocial('whatsapp')">🟢 واتساب</button>
-                <button class="btn-share share-fb" onclick="shareOnSocial('facebook')">🔵 فيسبوك</button>
-                <button class="btn-share share-tw" onclick="shareOnSocial('twitter')">⚫ إكس</button>
-            </div>
-        </div>
+    <h3>🔗 مشاركة الإذاعة مع الأصدقاء</h3>
+    <div class="share-row">
+        <!-- رابط واتساب مباشر يفتح التطبيق فوراً -->
+        <a id="shareWA" href="#" target="_blank" class="btn-share share-wa" style="color: #0f0e17; text-decoration: none;">🟢 واتساب</a>
+        
+        <!-- رابط فيسبوك المباشر المقاوم لحظر كروم أندرويد -->
+        <a id="shareFB" href="#" target="_blank" class="btn-share share-fb" style="color: white; text-decoration: none;">🔵 فيسبوك</a>
+        
+        <!-- رابط إكس / تويتر المباشر -->
+        <a id="shareTW" href="#" target="_blank" class="btn-share share-tw" style="color: white; text-decoration: none;">⚫ إكس</a>
+    </div>
+</div>
+
 
         <div class="card" style="box-sizing: border-box; width: 100%;">
             <h3>💬 صندوق دردشة المستمعين</h3>
@@ -389,25 +395,23 @@ document.body.appendChild(div);
 setTimeout(function() { div.remove(); }, 4000);
 }
 
-// 🛠️ إصلاح أزرار المشاركة المباشرة لتعمل 100% وتفتح في النوافذ الرسمية لتطبيقات الموبايل
-function shareOnSocial(platform) {
-var pageUrl = encodeURIComponent(window.location.href);
-var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
-var shareUrl = "";
-
-if (platform === 'whatsapp') {
-shareUrl = "whatsapp.com" + text + "%20" + pageUrl;
-} else if (platform === 'facebook') {
-shareUrl = "facebook.com" + pageUrl;
-} else if (platform === 'twitter') {
-shareUrl = "twitter.com" + text + "&url=" + pageUrl;
+// كود التحديث الديناميكي لروابط المشاركة المباشرة لمنع الحظر كلياً
+function initializeSecureSharing() {
+    var pageUrl = encodeURIComponent(window.location.href);
+    var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
+    
+    var fbBtn = document.getElementById('shareFB');
+    var waBtn = document.getElementById('shareWA');
+    var twBtn = document.getElementById('shareTW');
+    
+    if (fbBtn) fbBtn.href = "https://facebook.com" + pageUrl;
+    if (waBtn) waBtn.href = "https://whatsapp.com" + text + "%20" + pageUrl;
+    if (twBtn) twBtn.href = "https://twitter.com" + text + "&url=" + pageUrl;
 }
 
-if (shareUrl) {
-window.open(shareUrl, '_blank');
-showToast("جاري فتح تطبيق " + platform + " للمشاركة بنجاح! 🌟");
-}
-}
+// تشغيل الحقن الفوري للروابط عند فتح واجهة المستمع
+initializeSecureSharing();
+
 
 setInterval(function() {
 fetchChatAndStats();
