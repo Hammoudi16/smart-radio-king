@@ -133,49 +133,55 @@ app.get('/api/listeners-count', (req, res) => {
     res.json({ count: audioSubscribers.length || 1 }); 
 });
 
-// --- هندسة البث الصوتي التدفقي المتطور وتفادي قيود أندرويد وإنستغرام ---
+
+// ذاكرة تخزين حزم المايكروفون الحية لحفظ آخر قطع صوتية متصلة
+let liveAudioBuffer = Buffer.alloc(0);
 
 app.post('/api/stream-mic', (req, res) => {
     isMicLive = true;
-    const audioBuffer = req.body;
-    
-    // إرسال حزم الصوت الحية فوراً لكل متصفح متصل الآن بدون انقطاع
-    audioSubscribers.forEach(subscriber => {
-        try {
-            subscriber.write(audioBuffer);
-        } catch (e) {
-            audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
+    if (req.body && req.body.length > 0) {
+        // دمج دفقات الميكروفون المباشرة في الـ Buffer لمنع التقطع
+        liveAudioBuffer = Buffer.concat([liveAudioBuffer, req.body]);
+        
+        // حماية الذاكرة العشوائية للسيرفر بمسح الأجزاء القديمة جداً وتدوير البث
+        if (liveAudioBuffer.length > 15 * 1024 * 1024) {
+            liveAudioBuffer = liveAudioBuffer.subarray(5 * 1024 * 1024);
         }
-    });
+
+        // توزيع الحزمة الفورية للمستمعين المتصلين حالياً
+        audioSubscribers.forEach(subscriber => {
+            try { subscriber.write(req.body); } catch (e) {
+                audioSubscribers = audioSubscribers.filter(s => s !== subscriber);
+            }
+        });
+    }
     res.status(200).end();
 });
 
-app.post('/api/stop-mic', (req, res) => { 
-    isMicLive = false; 
-    res.json({ success: true }); 
-});
-
 app.get('/radio.mp3', (req, res) => {
-    // إجبار متصفحات الموبايل على قراءة الرابط كـ تيار بث حي مستمر وليس كملف مؤقت
+    // إرسال هيدر بث إذاعي تدفقي قياسي معترف به من قبل جوجل كروم وأندرويد
     res.writeHead(200, {
         'Content-Type': 'audio/webm;codecs=opus', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
         'Connection': 'keep-alive',
-        'Transfer-Encoding': 'chunked'
+        'Accept-Ranges': 'none'
     });
 
-    // إضافة المستمع إلى مصفوفة الضخ الحي المشترك
+    // إضافة المستمع للقائمة وضخ المخزون المبدئي فوراً لمنع الصمت عند الاتصال أول مرة
     audioSubscribers.push(res);
-
-    // حقنة تنشيط أولية تمنع ظهور نافذة التنبيه الخطأ في كروم
-    res.write(Buffer.alloc(1024));
+    if (liveAudioBuffer.length > 0) {
+        res.write(liveAudioBuffer);
+    } else {
+        res.write(Buffer.alloc(2048)); // عينة تنشيطية
+    }
 
     req.on('close', () => {
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
+
 
 // نظام فحص الجدولة الأسبوعية
 setInterval(() => {
