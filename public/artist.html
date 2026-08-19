@@ -34,3 +34,49 @@
     </style> 
 </head> 
 <body> 
+    <div class="container"> 
+        <div class="artist-header-row">
+            <div class="artist-badge"> 
+                <span class="artist-avatar">لوحة الفنان</span> 
+            </div> 
+            <div id="clock" class="studio-clock">00:00:00</div>
+        </div>
+
+        <h1>إذاعة الفنان المباشرة</h1> 
+        <div class="sub-title">بث مستمر 24H | مستعد لتلقي استماعكم</div> 
+        
+        <div class="card"> 
+            <audio id="artistRadioPlayer" preload="none"></audio> 
+            <button id="toggleLiveBtn" class="btn-play-live">▶️ تشغيل البث المباشر</button> 
+            <button class="btn-like-station" onclick="sendStationLike()">❤️ أعجبتني هذه المادة الإذاعية</button> 
+        </div> 
+
+        <div class="card"> 
+            <h3>🎵 معرض الألبومات وبودكاست المحطة</h3> 
+            <p style="font-size:10px; color:#a7a6ba; text-align:center; margin-top:-5px;">اضغط على أي غلاف لتحديث مظهر الإذاعة للمستمعين فوراً</p>
+            <div class="gallery-grid" id="tracksGallery"> 
+                <div class="gallery-item" onclick="updateRadioCover('/audio/album1.jpg')"> 
+                    <div class="gallery-preview" id="albumPreview">🎵</div> 
+                    <div class="gallery-title">ألبوم الموسيقى الهادئة</div> 
+                </div> 
+                <div class="gallery-item" onclick="updateRadioCover('/audio/podcast1.jpg')"> 
+                    <div class="gallery-preview" id="podcastPreview">🎙️</div> 
+                    <div class="gallery-title">بودكاست عواطف تونسية</div> 
+                </div> 
+            </div> 
+        </div> 
+
+        <div class="card"> 
+            <h3>💬 دردشة المستمعين الحية</h3> 
+            <div class="chat-messages" id="artistChatMessages"></div> 
+            <div class="chat-input-row"> 
+                <input type="text" id="artistChatInput" class="chat-input" placeholder="اكتب رسالتك هنا..."> 
+                <button id="sendArtistChatBtn" class="btn-send">إرسال التعليق</button> 
+            </div> 
+        </div> 
+    </div>
+
+    <!-- استدعاء ملف المعالجة جافاسكريبت التزامني للشبكة الخلفية -->
+    <script src="artist.js"></script>
+</body>
+</html>
