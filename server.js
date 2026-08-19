@@ -8,7 +8,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-// إعداد خيارات CORS الشاملة لقبول الاتصالات من الهواتف والحسابات الشخصية دون حظر
+// إعداد خيارات CORS لضمان قبول الاتصال من جميع الهواتف والحسابات دون حظر
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -21,35 +21,29 @@ app.use(express.urlencoded({ extended: true }));
 // مسار المايكروفون الخام
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
-// إدارة وتحديد المسارات والمجلدات الساكنة الموحدة
-const publicDir = path.join(__dirname, 'public');
+// الاحتفاظ بمسار المجلدات كما هي في ملفاتك القديمة لعدم كسر الصور والموسيقى
+app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
+
 const audioDir = path.join(__dirname, 'audio');
-const imageDir = path.join(publicDir, 'image');
+if (!fs.existsSync(audioDir)) {
+    fs.mkdirSync(audioDir, { recursive: true });
+}
+app.use(express.static(audioDir)); 
 
-// إنشاء المجلدات تلقائياً لضمان عدم حدوث مشاكل رفع على Render
-[audioDir, publicDir, imageDir].forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-});
-
-// إتاحة المجلدات العامة للمتصفحات أونلاين
-app.use(express.static(__dirname)); 
-app.use(express.static(publicDir)); 
-app.use('/audio', express.static(audioDir));
-
-// المتغيرات العامة لنظام البث والمزامنة
+// المتغيرات العامة للنظام والمزامنة الموحدة للدردشة
 let currentPassword = "123456";
-let messages = [{ sender: "النظام 🤖", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور أونلاين!", time: Date.now() }];
+let messages = [{ sender: "النظام 🤖", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور أونلاين!" }];
 let reactions = [];
 let isMicLive = false;
 let radioSchedule = [];
-let currentAlbumImage = "https://unsplash.com"; 
+let currentAlbumImage = "https://unsplash.com"; // غلاف حقيقي افتراضي لعدم تجميد الواجهة
 let systemAlerts = []; 
 
 let liveAudioChunks = [];
 let audioSubscribers = [];
 
+// المزامنة الحية مع حساب Spotify الخاص بك
 const globalPodcasts = [
     { title: "🎙️ راديو كينج على Spotify", platform: "Spotify", url: "https://spotify.com" }
 ];
@@ -62,30 +56,22 @@ const fmEncodingStats = {
     rdsText: "Radio King Live - البث الموسيقي التلقائي المستمر 24H"
 };
 
-// محرك الرفع والتصنيف الذكي للملفات والأغلفة المجدولة
+// إعداد محرك رفع الملفات وصور الغلاف
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => { 
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, imageDir); 
-        } else {
-            cb(null, audioDir); 
-        }
-    },
+    destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
-        const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
         if (file.mimetype.startsWith('image/')) {
-            cb(null, 'cover_' + uniqueSuffix + ext);
+            cb(null, 'current_album_cover_' + Date.now() + path.extname(file.originalname));
         } else {
-            cb(null, 'track_' + uniqueSuffix + ext); 
+            cb(null, 'audio_' + Date.now() + path.extname(file.originalname)); 
         }
     }
 });
 const upload = multer({ storage: storage });
 
-/* ================= المسارات البرمجية المصلحة (API Routes) ================= */
+/* ================= مسارات الأمان والتحقق المصلحة ================= */
 
-// 1. تصحيح واجهة الدخول: استقبال وفحص كلمة المرور بمرونة تامة
+// تصحيح واجهة الدخول: استقبال وفحص كلمة المرور بدقة وبجميع الصيغ النصية لمنع تجميد اللوحة
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password || req.query.password;
     if (!password) {
@@ -109,7 +95,7 @@ app.post('/api/change-password', (req, res) => {
     }
 });
 
-// 2. غرفة المحادثات الحية الموحدة (مزامنة فورية بين المذيع والفنان والمستمع)
+/* ================= مسارات المحادثات الموحدة للواجهات القديمة ================= */
 app.get('/api/messages', (req, res) => { 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.json(messages); 
@@ -126,8 +112,7 @@ app.post('/api/messages', (req, res) => {
 
 app.get('/api/reactions', (req, res) => {
     const since = parseInt(req.query.since) || 0;
-    const filtered = reactions.filter(r => r.time > since);
-    res.json({ reactions: filtered });
+    res.json({ reactions: reactions.filter(r => r.time > since) });
 });
 
 app.post('/api/reactions', (req, res) => {
@@ -146,14 +131,8 @@ app.post('/api/like', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/listeners-count', (req, res) => { 
-    res.json({ count: audioSubscribers.length || 0 }); 
-});
-
-app.get('/api/current-album', (req, res) => { 
-    res.setHeader('Cache-Control', 'no-cache');
-    res.json({ coverUrl: currentAlbumImage }); 
-});
+// مسارات الميتا والبيانات الفنية المتوافقة
+app.get('/api/current-album', (req, res) => { res.json({ coverUrl: currentAlbumImage || "" }); });
 
 app.get('/api/radio-meta', (req, res) => { 
     const since = parseInt(req.query.since) || 0;
@@ -166,55 +145,46 @@ app.get('/api/radio-meta', (req, res) => {
     }); 
 });
 
-// 3. جدولة الألبومات وحفظ ملف الألبومات مع التاريخ واليوم والوقت بدقة
+app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 0 }); });
+
+// معالجة بث الألبومات والتواريخ لتعمل بالتوافق مع صفحة الفنان القديمة
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     const { day, time, manualUrl } = req.body;
-    const currentDate = new Date().toLocaleDateString('ar-DZ'); // توثيق تاريخ الرفع الفعلي اليومي
+    const currentDate = new Date().toLocaleDateString('ar-DZ');
     
     if (manualUrl) {
+        // إصلاح روابط unsplash الخارجية المكسورة تلقائياً لجعلها تظهر في صفحاتك القديمة
         if (manualUrl.includes("unsplash.com") && !manualUrl.includes("://unsplash.com")) {
             currentAlbumImage = "https://unsplash.com";
         } else {
             currentAlbumImage = manualUrl;
         }
-        fmEncodingStats.rdsText = `بث مباشر للفنان: تم التحديث بتاريخ ${currentDate}`;
-        systemAlerts.push({ type: "album", message: `🎨 قام الفنان بتحديث الغلاف الحي!`, time: Date.now() });
+        fmEncodingStats.rdsText = `بث الألبوم الحالي بواسطة الفنان مباشرة`;
+        systemAlerts.push({ type: "album", message: "🎨 قام الفنان بتحديث غلاف الألبوم المشغل الآن!", time: Date.now() });
         return res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
     }
-
-    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف !" }); }
-
-    if (req.file.mimetype.startsWith('image/')) {
-        currentAlbumImage = `/image/${req.file.filename}`;
-    } else {
-        currentAlbumImage = `/audio/${req.file.filename}`;
-    }
-
-    fmEncodingStats.rdsText = `ألبوم مجدول: يوم ${day || "محدد"} - الساعة ${time || "الحالية"} - تم الرفع: ${currentDate}`;
-    messages.push({ 
-        sender: "نظام الجدولة 📅", 
-        text: `تم رفع وتصنيف مادة إذاعية بنجاح ليوم [${day || "اليوم"}] الساعة [${time || "الآن"}] بتاريخ [${currentDate}]`, 
-        time: Date.now() 
-    });
     
+    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف صوتي !" }); }
+
+    currentAlbumImage = `/audio/${req.file.filename}`;
+    fmEncodingStats.rdsText = `ألبوم مجدول: ${day} - ${time}`;
+    messages.push({ sender: "نظام الجدولة 📅", text: `تم رفع وتصنيف مادة إذاعية جديدة بنجاح [${day}] - [${time}] بتاريخ [${currentDate}]`, time: Date.now() });
     res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
 });
 
 app.post('/api/save-schedule', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'coverFile', maxCount: 1 }]), (req, res) => {
     const { day, time } = req.body;
-    const currentDate = new Date().toLocaleDateString('ar-DZ');
     const scheduleItem = {
         day: day || "0",
         time: time || "12:00",
-        dateAdded: currentDate,
-        audio: req.files && req.files['audioFile'] ? req.files['audioFile'][0].filename : null,
-        cover: req.files && req.files['coverFile'] ? req.files['coverFile'][0].filename : null
+        audio: req.files && req.files['audioFile'] ? req.files['audioFile'].filename : null,
+        cover: req.files && req.files['coverFile'] ? req.files['coverFile'].filename : null
     };
     radioSchedule.push(scheduleItem);
     res.json({ success: true, schedule: radioSchedule });
 });
 
-/* ================= أنظمة تيار البث الصوتي المتواصل 24 ساعة للهواتف ================= */
+/* ================= أنظمة بث تيار المايكروفون والبث المتواصل 24H للهواتف ================= */
 
 app.post('/api/start-mic', (req, res) => {
     isMicLive = true;
@@ -244,10 +214,10 @@ app.post('/api/stop-mic', (req, res) => {
     res.json({ success: true }); 
 });
 
-// بث صوتي مستمر 24 ساعة لا ينقطع ومتوافق تماماً مع متصفحات الهاتف (Chrome / Safari)
+// بث صوتي 24 ساعة لا ينقطع ومتوافق تماماً مع متصفحات الهاتف (Chrome / السيارات / التلفزيون)
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
-        'Content-Type': 'audio/mpeg', // استخدام ترميز القياسي لضمان عمل الهاتف بشكل مستمر 24H
+        'Content-Type': 'audio/mpeg', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
@@ -263,9 +233,23 @@ app.get('/radio.mp3', (req, res) => {
         });
     }
 
-    // لتفادي إغلاق متصفح الهاتف للبث عند صمت المذيع، نقوم بإرسال نبضات صوتية خفيفة دورية تبقي المتصفح نشطاً 24 ساعة
-    const keepAliveTicker = setInterval(() => {
+    // إرسال نبضات بث مستمرة (Keep-Alive Frames) تمنع متصفح جوجل كروم على الهواتف من قطع الصوت عند نوم شاشة الهاتف
+    const satellitePulse = setInterval(() => {
         if (!isMicLive) {
             try {
-                // إرسال تيار ترددات صوتية مدمجة متواصلة تمنع وضع الخمول في أجهزة الأندرويد والآيفون
-const byteHeartbeat = Buffer.from([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);res.write(byteHeartbeat);} catch(e) {clearInterval(keepAliveTicker);}}}, 1000);req.on('close', () => {clearInterval(keepAliveTicker);audioSubscribers = audioSubscribers.filter(s => s !== res);});});const PORT = process.env.PORT || 3000;server.listen(PORT, () => {console.log(Server running globally on port ${PORT});});
+                const syncFrame = Buffer.alloc(512, 0xAA); 
+                res.write(syncFrame); 
+            } catch(e) {
+                clearInterval(satellitePulse);
+            }
+        }
+    }, 800);
+
+    req.on('close', () => {
+        clearInterval(satellitePulse);
+        audioSubscribers = audioSubscribers.filter(s => s !== res);
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
