@@ -132,11 +132,17 @@
             </div>
         </div>
 
-        <div class="card">
+                <!-- بطاقة صندوق دردشة المستمعين المؤمّنة بالكامل -->
+        <div class="card" style="box-sizing: border-box; width: 100%;">
             <h3>💬 صندوق دردشة المستمعين</h3>
             <div class="chat-messages" id="listenerChatMessages"></div>
-            <div class="chat-input-row">
-     
+            <div class="chat-input-row" style="display: flex; flex-direction: column; gap: 8px;">
+                <input type="text" id="listenerNameInput" class="chat-input" placeholder="اسمك المستعار..." value="مستمع">
+                <input type="text" id="listenerChatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
+                <button id="sendListenerChatBtn" class="send-btn" style="width: 100%; display: block; background: #00ebc7; color: #0f0e17; font-weight: bold; min-height: 44px; margin: 4px 0;">إرسال التعليق للهواء</button>
+            </div>
+        </div>
+
 <script>
     
 
@@ -155,56 +161,63 @@ var lastAlertTimestamp = Date.now();
 var audioCtx = null;
 var analyser = null;
 var source = null;
-if (startLiveBtn) {
-startLiveBtn.onclick = function() {
-if (player) {
-if (player.paused) {
-player.pause();
-player.src = "";
-player.load();
-player.type = 'audio/webm; codecs="opus"';
-player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
-startLiveBtn.innerHTML = ' جاري الاتصال...';
-startLiveBtn.style.background = "#3a3650";
-startLiveBtn.style.color = "#fffffe";
-player.play()
-.then(function() {
-isPlaying = true;
-startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
-startLiveBtn.style.background = "#00ebc7";
-startLiveBtn.style.color = "#0f0e17";
-setupVisualizer();
-})
-.catch(function(error) {
-console.log("تنبيه المشغل اللحظي:", error);
-setTimeout(function(){
-player.play()
-.then(function() {
-isPlaying = true;
-startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
-startLiveBtn.style.background = "#00ebc7";
-startLiveBtn.style.color = "#0f0e17";
-setupVisualizer();
-})
-.catch(function(){
-isPlaying = false;
-startLiveBtn.innerText = "▶️ اضغط للاستماع المباشر للهواء";
-startLiveBtn.style.background = "#ff0055";
-startLiveBtn.style.color = "#fffffe";
-alert("تنبيه البث: المذيع لم يقم بفتح المايكروفون حالياً من لوحة الاستوديو.");
-});
-}, 2500);
-});
-} else {
-player.pause();
-isPlaying = false;
-startLiveBtn.innerText = "▶️ اضغط للاستماع المباشر للهواء";
-startLiveBtn.style.background = "#ff0055";
-startLiveBtn.style.color = "#fffffe";
-}
-}
-};
-}
+        if (startLiveBtn) {
+            startLiveBtn.onclick = function() {
+                if (player) {
+                    if (player.paused) {
+                        player.pause();
+                        // تأمين جلب دفق الصوت المتواصل وتفادي حظر التداخل التبادلي
+                        player.crossOrigin = "anonymous"; 
+                        player.type = 'audio/webm; codecs="opus"';
+                        player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
+                        player.load();
+                        
+                        startLiveBtn.innerHTML = '<span class="spinner"></span> جاري إنعاش قناة الهواء...';
+                        startLiveBtn.style.background = "#3a3650";
+                        startLiveBtn.style.color = "#fffffe";
+                        
+                        // محاولة تشغيل الصوت مع تعهد برمجي بالامتثال لسياسة المتصفح
+                        player.play()
+                        .then(function() {
+                            isPlaying = true;
+                            startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
+                            startLiveBtn.style.background = "#00ebc7";
+                            startLiveBtn.style.color = "#0f0e17";
+                            setupVisualizer();
+                        })
+                        .catch(function(error) {
+                            console.log("تنبيه المشغل اللحظي المتنقل:", error);
+                            // خطة بديلة فورية لإعادة الاتصال التلقائي بالنبضات الصامتة المتواصلة 24H
+                            setTimeout(function(){
+                                player.play()
+                                .then(function() {
+                                    isPlaying = true;
+                                    startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
+                                    startLiveBtn.style.background = "#00ebc7";
+                                    startLiveBtn.style.color = "#0f0e17";
+                                    setupVisualizer();
+                                })
+                                .catch(function(){
+                                    isPlaying = false;
+                                    startLiveBtn.innerText = "▶️ اضغط هنا لبدء الاستماع الفوري للهواء";
+                                    startLiveBtn.style.background = "#ff0055";
+                                    startLiveBtn.style.color = "#fffffe";
+                                    alert("تنبيه البث: يرجى التأكد من بدء تشغيل البث من الاستوديو الرئيسي أولاً لضمان تدفق الصوت.");
+                                });
+                            }, 1500);
+                        });
+                    } else {
+                        player.pause();
+                        player.src = "";
+                        isPlaying = false;
+                        startLiveBtn.innerText = "▶️ اضغط للاستماع المباشر للهواء";
+                        startLiveBtn.style.background = "#ff0055";
+                        startLiveBtn.style.color = "#fffffe";
+                    }
+                }
+            };
+        }
+
 if (muteToggleBtn && player) {
 muteToggleBtn.onclick = function() {
 player.muted = !player.muted;
