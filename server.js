@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const http = require('http');
+const path = require('path'); // مكتبة معالجة المسارات الذكية
 
 const app = express();
 const server = http.createServer(app);
@@ -9,7 +10,11 @@ const server = http.createServer(app);
 // إعدادات الـ Middlewares الأساسية
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // تشغيل وخدمة ملفات الـ HTML والصور محلياً
+
+// 🛠️ الإصلاح الجوهري: جعل السيرفر يقرأ الملفات من المجلد الرئيسي والمجلدات الفرعية مثل public أو frontend
+app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // إعداد Multer في الذاكرة لالتقاط حزم الصوت والصور بسرعة وخفة
 const storage = multer.memoryStorage();
@@ -30,11 +35,22 @@ let fmStats = {
     rdsText: "الملك كينج - بث مباشر حيوى"
 };
 
+// مسار توجيه تلقائي: إذا فتح المستمع الرابط الرئيسي بدون تحديد اسم الملف
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'listener.html'), (err) => {
+        if (err) {
+            res.sendFile(path.join(__dirname, 'public', 'listener.html'), (err2) => {
+                if (err2) res.status(404).send("الملف listener.html غير موجود في المستودع.");
+            });
+        }
+    });
+});
+
 // ==========================================
 // 1. نظام بث وتوزيع الصوت الحي (Audio Stream)
 // ==========================================
 
-// رابط المستمعين: دفق صوتي متواصل بنظام التقطيع لمنع الحظر والبطء
+// رابط المستمعين: دفق صوتی متواصل بنظام التقطيع لمنع الحظر والبطء
 app.get('/radio.mp3', (req, res) => {
     res.setHeader('Content-Type', 'audio/webm;codecs=opus');
     res.setHeader('Transfer-Encoding', 'chunked');
@@ -43,7 +59,6 @@ app.get('/radio.mp3', (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // إضافة المستمع إلى قائمة المشتركين النشطين لحسابه في الرسم البياني
     audioSubscribers.push(res);
 
     req.on('close', () => {
@@ -59,9 +74,7 @@ app.post('/api/stream-mic', upload.single('audioChunk'), (req, res) => {
         audioSubscribers.forEach(subscriber => {
             try {
                 subscriber.write(chunk);
-            } catch (err) {
-                // تجاوز المشتركين الذين أغلقوا الصفحة فجأة لمنع كراش السيرفر
-            }
+            } catch (err) {}
         });
     }
     res.status(200).json({ success: true });
@@ -76,18 +89,14 @@ app.post('/api/stop-mic', (req, res) => {
 // 2. نظام الشات المطور وإحصائيات المستمعين
 // ==========================================
 
-// جلب رسائل الشات الحية
 app.get('/api/messages', (req, res) => {
     res.json(messages);
 });
 
-// إرسال رسالة جديدة (تحديث فوري وحماية الذاكرة)
 app.post('/api/messages', (req, res) => {
     const { sender, text } = req.body;
     if (sender && text) {
         messages.push({ sender, text, timestamp: Date.now() });
-        
-        // حماية السيرفر: الاحتفاظ بآخر 50 رسالة فقط لمنع بطء التصفح
         if (messages.length > 50) messages.shift();
         res.status(201).json({ success: true });
     } else {
@@ -95,7 +104,6 @@ app.post('/api/messages', (req, res) => {
     }
 });
 
-// جلب عدد المستمعين أونلاين بالثانية (لتغذية الرسم البياني الذكي في الاستوديو)
 app.get('/api/listeners-count', (req, res) => {
     res.json({ count: audioSubscribers.length });
 });
@@ -120,7 +128,6 @@ app.get('/api/reactions', (req, res) => {
     res.json({ reactions: newReactions });
 });
 
-// جلب الغلاف الحالي والـ RDS ونظام التشفير للمستمعين
 app.get('/api/radio-meta', (req, res) => {
     res.json({
         fmStats: {
@@ -138,7 +145,6 @@ app.get('/api/radio-meta', (req, res) => {
     });
 });
 
-// تحديث الألبوم والغلاف فوراً من لوحة المذيع أو الفنان
 app.post('/api/upload-album', (req, res) => {
     if (req.body.manualUrl) {
         currentCoverUrl = req.body.manualUrl;
