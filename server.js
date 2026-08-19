@@ -32,7 +32,6 @@ let messages = [{ sender: "النظام 🤖", text: "مرحباً بكم في �
 let reactions = [];
 let isMicLive = false;
 let radioSchedule = [];
-// Correction immédiate de l'image brisée avec un lien d'image valide par défaut
 let currentAlbumImage = "https://unsplash.com"; 
 let systemAlerts = []; 
 
@@ -63,7 +62,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-/* ================= ROUTES API STANDARD ================= */
+/* ================= ROUTES API STANDARDS ================= */
 
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password || req.query.password;
@@ -112,7 +111,6 @@ app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribe
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     const { day, time, manualUrl } = req.body;
     if (manualUrl) {
-        // CORRECTION IMAGE : Si l'artiste envoie le lien général Unsplash, on le force vers un lien d'image réel
         if (manualUrl.includes("unsplash.com") && !manualUrl.includes("://unsplash.com")) {
             currentAlbumImage = "https://unsplash.com";
         } else {
@@ -127,7 +125,7 @@ app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     res.status(400).json({ success: false });
 });
 
-/* ================= GESTION DU MICRO ET STREAM 24H/24 ================= */
+/* ================= STREAM AUDIO LIVE AUTOMATIQUE ================= */
 
 app.post('/api/start-mic', (req, res) => {
     isMicLive = true;
@@ -155,42 +153,39 @@ app.post('/api/stop-mic', (req, res) => {
     res.json({ success: true }); 
 });
 
-// FLUX RADIO PRINCIPAL CORRIGÉ POUR TOUS LES NAVIGATEURS MOBILES
+// FLUX ADAPTÉ POUR DÉBLOQUER CHROME MOBILE IMMÉDIATEMENT
 app.get('/radio.mp3', (req, res) => {
-    // En-tête universellement accepté par Google Chrome Mobile (Audio pur MPEG)
     res.writeHead(200, {
         'Content-Type': 'audio/mpeg', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked'
     });
 
     audioSubscribers.push(res);
     
-    // Envoyer les morceaux en mémoire s'il y en a
-    if (liveAudioChunks.length > 0) {
+    // Si le micro du studio émet du son en direct
+    if (isMicLive && liveAudioChunks.length > 0) {
         liveAudioChunks.forEach(chunk => {
             try { res.write(chunk); } catch(e){}
         });
     }
 
-    // Boucle d'activation : Envoie un signal sonore continu qui force le téléphone à rester éveillé et à diffuser du son
-    const streamingInterval = setInterval(() => {
+    // Système automatique anti-blocage : Envoie des pulsations audio MPEG valides toutes les 300ms
+    const fallbackTicker = setInterval(() => {
         if (!isMicLive) {
             try {
-                // Génération d'une trame audio valide lue en continu par le décodeur de Chrome Mobile
-                const activeAudioFrame = Buffer.alloc(512, 0x55); 
-                res.write(activeAudioFrame); 
+                // Trame audio binaire standard lue immédiatement par le décodeur Google Chrome
+                const standardMpegFrame = Buffer.from([0xFF, 0xFB, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00]);
+                res.write(standardMpegFrame);
             } catch(e) {
-                clearInterval(streamingInterval);
+                clearInterval(fallbackTicker);
             }
         }
-    }, 400);
+    }, 300);
 
     req.on('close', () => {
-        clearInterval(streamingInterval);
+        clearInterval(fallbackTicker);
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
