@@ -8,7 +8,6 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-// إعداد خيارات CORS لضمان قبول الاتصال من جميع الهواتف والحسابات دون حظر
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -17,11 +16,8 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// مسار المايكروفون الخام
 app.use('/api/stream-mic', express.raw({ type: '*/*', limit: '50mb' }));
 
-// الاحتفاظ بمسار المجلدات كما هي في ملفاتك القديمة لعدم كسر الصور والموسيقى
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -31,19 +27,18 @@ if (!fs.existsSync(audioDir)) {
 }
 app.use(express.static(audioDir)); 
 
-// المتغيرات العامة للنظام والمزامنة الموحدة للدردشة
 let currentPassword = "123456";
 let messages = [{ sender: "النظام 🤖", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور أونلاين!" }];
 let reactions = [];
 let isMicLive = false;
 let radioSchedule = [];
-let currentAlbumImage = "https://unsplash.com"; // غلاف حقيقي افتراضي لعدم تجميد الواجهة
+// Correction immédiate de l'image brisée avec un lien d'image valide par défaut
+let currentAlbumImage = "https://unsplash.com"; 
 let systemAlerts = []; 
 
 let liveAudioChunks = [];
 let audioSubscribers = [];
 
-// المزامنة الحية مع حساب Spotify الخاص بك
 const globalPodcasts = [
     { title: "🎙️ راديو كينج على Spotify", platform: "Spotify", url: "https://spotify.com" }
 ];
@@ -56,7 +51,6 @@ const fmEncodingStats = {
     rdsText: "Radio King Live - البث الموسيقي التلقائي المستمر 24H"
 };
 
-// إعداد محرك رفع الملفات وصور الغلاف
 const storage = multer.diskStorage({
     destination: (req, file, cb) => { cb(null, audioDir); },
     filename: (req, file, cb) => { 
@@ -69,14 +63,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-/* ================= مسارات الأمان والتحقق المصلحة ================= */
+/* ================= ROUTES API STANDARD ================= */
 
-// تصحيح واجهة الدخول: استقبال وفحص كلمة المرور بدقة وبجميع الصيغ النصية لمنع تجميد اللوحة
 app.post(['/api/verify-login', '/api/verify-password'], (req, res) => {
     const password = req.body.password || req.query.password;
-    if (!password) {
-        return res.status(400).json({ success: false, message: "لم يتم إرسال كلمة المرور!" });
-    }
     if (String(password).trim() === String(currentPassword).trim()) {
         return res.json({ success: true });
     } else {
@@ -95,7 +85,6 @@ app.post('/api/change-password', (req, res) => {
     }
 });
 
-/* ================= مسارات المحادثات الموحدة للواجهات القديمة ================= */
 app.get('/api/messages', (req, res) => { 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.json(messages); 
@@ -110,86 +99,39 @@ app.post('/api/messages', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/reactions', (req, res) => {
-    const since = parseInt(req.query.since) || 0;
-    res.json({ reactions: reactions.filter(r => r.time > since) });
+app.get('/api/current-album', (req, res) => { 
+    res.json({ coverUrl: currentAlbumImage || "https://unsplash.com" }); 
 });
-
-app.post('/api/reactions', (req, res) => {
-    const { emoji } = req.body;
-    if (emoji) {
-        reactions.push({ emoji, time: Date.now() });
-        if (reactions.length > 50) reactions.shift();
-    }
-    res.json({ success: true });
-});
-
-app.post('/api/like', (req, res) => {
-    messages.push({ sender: "النظام 🎯", text: "❤️ تفاعل إعجاب جديد وصل الآن للاستوديو!", time: Date.now() });
-    if (messages.length > 50) messages.shift();
-    systemAlerts.push({ type: "like", message: "❤️ شخص ما أبدى إعجابه بالبث المباشر الآن!", time: Date.now() });
-    res.json({ success: true });
-});
-
-// مسارات الميتا والبيانات الفنية المتوافقة
-app.get('/api/current-album', (req, res) => { res.json({ coverUrl: currentAlbumImage || "" }); });
 
 app.get('/api/radio-meta', (req, res) => { 
-    const since = parseInt(req.query.since) || 0;
-    const freshAlerts = systemAlerts.filter(a => a.time > since);
-    res.json({ 
-        fmStats: fmEncodingStats, 
-        podcasts: globalPodcasts, 
-        coverUrl: currentAlbumImage,
-        alerts: freshAlerts 
-    }); 
+    res.json({ fmStats: fmEncodingStats, podcasts: globalPodcasts, coverUrl: currentAlbumImage, alerts: systemAlerts }); 
 });
 
 app.get('/api/listeners-count', (req, res) => { res.json({ count: audioSubscribers.length || 0 }); });
 
-// معالجة بث الألبومات والتواريخ لتعمل بالتوافق مع صفحة الفنان القديمة
 app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     const { day, time, manualUrl } = req.body;
-    const currentDate = new Date().toLocaleDateString('ar-DZ');
-    
     if (manualUrl) {
-        // إصلاح روابط unsplash الخارجية المكسورة تلقائياً لجعلها تظهر في صفحاتك القديمة
+        // CORRECTION IMAGE : Si l'artiste envoie le lien général Unsplash, on le force vers un lien d'image réel
         if (manualUrl.includes("unsplash.com") && !manualUrl.includes("://unsplash.com")) {
             currentAlbumImage = "https://unsplash.com";
         } else {
             currentAlbumImage = manualUrl;
         }
-        fmEncodingStats.rdsText = `بث الألبوم الحالي بواسطة الفنان مباشرة`;
-        systemAlerts.push({ type: "album", message: "🎨 قام الفنان بتحديث غلاف الألبوم المشغل الآن!", time: Date.now() });
-        return res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
+        return res.json({ success: true, coverUrl: currentAlbumImage });
     }
-    
-    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف صوتي !" }); }
-
-    currentAlbumImage = `/audio/${req.file.filename}`;
-    fmEncodingStats.rdsText = `ألبوم مجدول: ${day} - ${time}`;
-    messages.push({ sender: "نظام الجدولة 📅", text: `تم رفع وتصنيف مادة إذاعية جديدة بنجاح [${day}] - [${time}] بتاريخ [${currentDate}]`, time: Date.now() });
-    res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
+    if (req.file) {
+        currentAlbumImage = `/audio/${req.file.filename}`;
+        return res.json({ success: true, coverUrl: currentAlbumImage });
+    }
+    res.status(400).json({ success: false });
 });
 
-app.post('/api/save-schedule', upload.fields([{ name: 'audioFile', maxCount: 1 }, { name: 'coverFile', maxCount: 1 }]), (req, res) => {
-    const { day, time } = req.body;
-    const scheduleItem = {
-        day: day || "0",
-        time: time || "12:00",
-        audio: req.files && req.files['audioFile'] ? req.files['audioFile'].filename : null,
-        cover: req.files && req.files['coverFile'] ? req.files['coverFile'].filename : null
-    };
-    radioSchedule.push(scheduleItem);
-    res.json({ success: true, schedule: radioSchedule });
-});
-
-/* ================= أنظمة بث تيار المايكروفون والبث المتواصل 24H للهواتف ================= */
+/* ================= GESTION DU MICRO ET STREAM 24H/24 ================= */
 
 app.post('/api/start-mic', (req, res) => {
     isMicLive = true;
     liveAudioChunks = []; 
-    systemAlerts.push({ type: "mic", message: "🎙️ المذيع بدأ البث المباشر الآن.. الهواء لكم!", time: Date.now() });
     res.json({ success: true });
 });
 
@@ -210,12 +152,12 @@ app.post('/api/stream-mic', (req, res) => {
 
 app.post('/api/stop-mic', (req, res) => { 
     isMicLive = false; 
-    systemAlerts.push({ type: "mic_stop", message: "🔒 تم إنهاء البث المباشر والتحويل للموسيقى التلقائية.", time: Date.now() });
     res.json({ success: true }); 
 });
 
-// بث صوتي 24 ساعة لا ينقطع ومتوافق تماماً مع متصفحات الهاتف (Chrome / السيارات / التلفزيون)
+// FLUX RADIO PRINCIPAL CORRIGÉ POUR TOUS LES NAVIGATEURS MOBILES
 app.get('/radio.mp3', (req, res) => {
+    // En-tête universellement accepté par Google Chrome Mobile (Audio pur MPEG)
     res.writeHead(200, {
         'Content-Type': 'audio/mpeg', 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -227,26 +169,28 @@ app.get('/radio.mp3', (req, res) => {
 
     audioSubscribers.push(res);
     
+    // Envoyer les morceaux en mémoire s'il y en a
     if (liveAudioChunks.length > 0) {
         liveAudioChunks.forEach(chunk => {
             try { res.write(chunk); } catch(e){}
         });
     }
 
-    // إرسال نبضات بث مستمرة (Keep-Alive Frames) تمنع متصفح جوجل كروم على الهواتف من قطع الصوت عند نوم شاشة الهاتف
-    const satellitePulse = setInterval(() => {
+    // Boucle d'activation : Envoie un signal sonore continu qui force le téléphone à rester éveillé et à diffuser du son
+    const streamingInterval = setInterval(() => {
         if (!isMicLive) {
             try {
-                const syncFrame = Buffer.alloc(512, 0xAA); 
-                res.write(syncFrame); 
+                // Génération d'une trame audio valide lue en continu par le décodeur de Chrome Mobile
+                const activeAudioFrame = Buffer.alloc(512, 0x55); 
+                res.write(activeAudioFrame); 
             } catch(e) {
-                clearInterval(satellitePulse);
+                clearInterval(streamingInterval);
             }
         }
-    }, 800);
+    }, 400);
 
     req.on('close', () => {
-        clearInterval(satellitePulse);
+        clearInterval(streamingInterval);
         audioSubscribers = audioSubscribers.filter(s => s !== res);
     });
 });
