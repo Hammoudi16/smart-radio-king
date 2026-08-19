@@ -413,6 +413,23 @@ fetchRadioMeta();
 }, 3000);
 fetchChatAndStats();
 fetchRadioMeta();
+// نظام تبديل المظهر اللوني الذكي للمستمعين
+var themeBtn = document.getElementById('themeToggleBtn');
+if (themeBtn) {
+    themeBtn.onclick = function() {
+        if (document.body.style.background === "rgb(240, 240, 246)") {
+            document.body.style.background = "#0f0e17";
+            document.body.style.color = "#fffffe";
+            themeBtn.style.background = "#2a283e";
+            themeBtn.style.color = "#00ebc7";
+        } else {
+            document.body.style.background = "#f0f0f6";
+            document.body.style.color = "#0f0e17";
+            themeBtn.style.background = "#fffffe";
+            themeBtn.style.color = "#ff0055";
+        }
+    };
+}
 
 
 
