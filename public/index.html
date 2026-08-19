@@ -47,7 +47,7 @@
         </div>
     </div>
 
-    <!-- المحتوى الرئيسي المتجاوب بالكامل -->
+    <!-- المحتوى الرئيسي المتجاوب بالكامل للمذيع -->
     <div class="container" id="studioMainContent" style="display: none !important;">
       <h1>🎙️ استوديو راديو كينج الذكي</h1>
 
@@ -107,7 +107,7 @@
           <div class="chat-messages" id="studioChatMessages"></div>
           <div class="chat-input-row">
             <input type="text" id="studioChatInput" class="chat-input" placeholder="اكتب رد المذيع هنا...">
-            <button id="sendStudioChatBtn" style="margin: 0; width: 100%;">إرسال الرد للهواء</button>
+            <button id="sendStudioChatBtn" style="margin: 0; width: 100%; background: #00ebc7; color: #0f0e17;">إرسال الرد للهواء</button>
           </div>
         </div>
 
@@ -147,9 +147,8 @@
         <button id="saveSchedBtn" style="background: #00ebc7; color: #0f0e17; margin-top: 8px;">💾 حفظ وتثبيت الجدولة في الذاكرة التلقائية</button>
       </div>
     </div>
-
 <script>
-  // دالة محاكاة عداد الصوتVU الرسومي الاحترافي لتشغيله بشكل ديناميكي وممتع أثناء البث function simulateVuMeter() { var vuBar = document.getElementById('vuMeterBar'); var StatusEl = document.getElementById('currentStatus'); if (vuBar) { if (statusEl &&statusEl.innerText.includes("مباشر")) { varlevel = Math.floor(Math.random() * (95 - 30) + 30); vuBar.style.width =level + "%"; } else { vuBar.style.width = "0%"; } } } setInterval(simulateVuMeter, 150);
+  // دالة محاكاة عداد الصوت VU الرسومي الاحترافي لتشغيله بشكل ديناميكي وممتع أثناء البث المباشر function simulateVuMeter() { var vuBar = document.getElementById('vuMeterBar'); var StatusEl = document.getElementById('currentStatus'); if (vuBar) { if (statusEl &&statusEl.innerText.includes("مباشر")) { varlevel = Math.floor(Math.random() * (95 - 30) + 30); vuBar.style.width =level + "%"; } else { vuBar.style.width = "0%"; } } } setInterval(simulateVuMeter, 150);
 </script>
 </html>
   </body>
