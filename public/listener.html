@@ -124,7 +124,6 @@
             </div>
         </div>
     </div>
-
     <script>
         var SERVER_URL = window.location.origin;
         var player = document.getElementById('listenerPlayer');
@@ -160,139 +159,147 @@
                         var textNode = document.createTextNode(msg.text);
                         div.appendChild(senderB);
                         div.appendChild(textNode);
+                        chatMessages.appendChild(div);
+                    });
+                }
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }).catch(function(){});
 
+            fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var el = document.getElementById('listenerLiveCount');
+                if (el && data.count !== undefined) el.innerText = data.count;
+            }).catch(function(){});
 
+            fetch(SERVER_URL + '/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(reactions) {
+                if (Array.isArray(reactions) && reactions.length > 0) {
+                    reactions.forEach(function(r) { createFloatingEmoji(r.emoji); });
+                    lastReactionTimestamp = Date.now();
+                }
+            }).catch(function(){});
+        }
 
-chatMessages.appendChild(div);
-});
-}
-chatMessages.scrollTop = chatMessages.scrollHeight;
-}).catch(function(){});
+        // دالة جلب معلومات الراديو والبودكاست والـ FM لتضمينها بداخل كود الواجهة
+        function fetchRadioMeta() {
+            fetch(SERVER_URL + '/api/radio-meta?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.fmStats) {
+                    document.getElementById('metaFreq').innerText = data.fmStats.frequency;
+                    document.getElementById('metaBitrate').innerText = data.fmStats.bitrate;
+                    document.getElementById('metaCodec').innerText = data.fmStats.codec;
+                    document.getElementById('metaSignal').innerText = data.fmStats.signalStrength;
+                    document.getElementById('metaRds').innerText = "RDS: " + data.fmStats.rdsText;
+                }
+                if (Array.isArray(data.podcasts)) {
+                    var container = document.getElementById('globalPodcastsContainer');
+                    container.innerHTML = "";
+                    data.podcasts.forEach(function(p) {
+                        var a = document.createElement('a');
+                        a.className = "podcast-link";
+                        a.href = p.url;
+                        a.target = "_blank";
+                        a.innerHTML = `<span>🔊 ${p.title}</span> <b style="color:#00ebc7">[انتقال للمنصة]</b>`;
+                        container.appendChild(a);
+                    });
+                }
+            }).catch(function(){});
+        }
 
-fetch(SERVER_URL + '/api/listeners-count?t=' + Date.now())
-.then(function(res) { return res.json(); })
-.then(function(data) {
-var el = document.getElementById('listenerLiveCount');
-if (el && data.count !== undefined) el.innerText = data.count;
-}).catch(function(){});
+        // تفعيل زر إرسال تعليقات الدردشة وإصلاحه بالكامل
+        if (sendChatBtn) {
+            sendChatBtn.onclick = function(e) {
+                if (e) e.preventDefault();
+                var text = chatInput.value.trim();
+                var sender = nameInput.value.trim() || "مستمع";
+                if (!text) return false;
+                chatInput.value = "";
 
-fetch(SERVER_URL + '/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
-.then(function(res) { return res.json(); })
-.then(function(reactions) {
-if (Array.isArray(reactions) && reactions.length > 0) {
-reactions.forEach(function(r) { createFloatingEmoji(r.emoji); });
-lastReactionTimestamp = Date.now();
-}
-}).catch(function(){});
-}
+                fetch(SERVER_URL + '/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender: sender, text: text })
+                })
+                .then(function() { fetchChatAndStats(); })
+                .catch(function(err){ console.log("خطأ شات:", err); });
+                return false;
+            };
+        }
 
-// دالة جلب معلومات الراديو والبودكاست والـ FM لتضمينها بداخل كود الواجهة
-function fetchRadioMeta() {
-fetch(SERVER_URL + '/api/radio-meta?t=' + Date.now())
-.then(function(res) { return res.json(); })
-.then(function(data) {
-if (data.fmStats) {
-document.getElementById('metaFreq').innerText = data.fmStats.frequency;
-document.getElementById('metaBitrate').innerText = data.fmStats.bitrate;
-document.getElementById('metaCodec').innerText = data.fmStats.codec;
-document.getElementById('metaSignal').innerText = data.fmStats.signalStrength;
-document.getElementById('metaRds').innerText = "RDS: " + data.fmStats.rdsText;
-}
-if (Array.isArray(data.podcasts)) {
-var container = document.getElementById('globalPodcastsContainer');
-container.innerHTML = "";
-data.podcasts.forEach(function(p) {
-var a = document.createElement('a');
-a.className = "podcast-link";
-a.href = p.url;
-a.target = "_blank";
-a.innerHTML = <span>🔊 ${p.title}</span> <b style="color:#00ebc7">[انتقال للمنصة]</b>;
-container.appendChild(a);
-});
-}
-}).catch(function(){});
-}
+        // تصحيح دالة إرسال التفاعلات المتطايرة لمنع توقف السكريبت
+        function sendReaction(emoji) {
+            createFloatingEmoji(emoji); 
+            fetch(SERVER_URL + '/api/reactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emoji: emoji })
+            }).catch(function(){});
+        }
 
-if (sendChatBtn) {
-sendChatBtn.onclick = function(e) {
-if (e) e.preventDefault();
-var text = chatInput.value.trim();
-var sender = nameInput.value.trim() || "مستمع";
-if (!text) return false;
-chatInput.value = "";
+        function createFloatingEmoji(emoji) {
+            var div = document.createElement('div');
+            div.className = 'floating-emoji';
+            div.innerText = emoji;
+            div.style.left = Math.random() * 85 + "vw";
+            div.style.animationDuration = (Math.random() * 2 + 3) + "s";
+            document.body.appendChild(div);
+            setTimeout(function() { div.remove(); }, 5000);
+        }
 
-fetch(SERVER_URL + '/api/messages', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ sender: sender, text: text })
-})
-.then(function() { fetchChatAndStats(); })
-.catch(function(){});
-return false;
-};
-}
+        // دالة تصحيح مشاركة الراديو المباشر مع الأصدقاء على شبكات التواصل
+        function shareOnSocial(platform) {
+            var pageUrl = encodeURIComponent(window.location.href);
+            var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
+            var shareWindow = "";
 
-function sendReaction(emoji) {
-createFloatingEmoji(emoji);
-fetch(SERVER_URL + '/api/reactions', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ emoji: emoji })
-}).catch(function(){});
-}
+            if (platform === 'whatsapp') {
+                shareWindow = "https://whatsapp.com" + text + "%20" + pageUrl;
+            } else if (platform === 'facebook') {
+                shareWindow = "https://facebook.com" + pageUrl;
+            } else if (platform === 'twitter') {
+                shareWindow = "https://twitter.com" + text + "&url=" + pageUrl;
+            }
+            if (shareWindow) window.open(shareWindow, '_blank', 'width=600,height=400');
+        }
 
-function createFloatingEmoji(emoji) {
-var div = document.createElement('div');
-div.className = 'floating-emoji';
-div.innerText = emoji;
-div.style.left = Math.random() * 85 + "vw";
-div.style.animationDuration = (Math.random() * 2 + 3) + "s";
-document.body.appendChild(div);
-setTimeout(function() { div.remove(); }, 5000);
-}
+        // تصحيح وتأمين زر تشغيل الصوت وإجبار المتصفح على البث الفوري
+        var startLiveBtn = document.getElementById('startRadioLiveBtn');
+        if (startLiveBtn) {
+            startLiveBtn.onclick = function() {
+                if (player) {
+                    // ربط رابط الراديو الفعلي مع إضافة طابع زمني لتخطي الكاش الميت في الموبايل
+                    player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
+                    player.load();
+                    player.play()
+                    .then(function() {
+                        startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
+                        startLiveBtn.style.background = "#00ebc7";
+                        startLiveBtn.style.color = "#0f0e17";
+                    })
+                    .catch(function(error) {
+                        alert("يرجى الضغط مرة أخرى أو التحقق من صلاحيات الصوت بالمتصفح.");
+                        console.log("خطأ تشغيل:", error);
+                    });
+                }
+            };
+        }
 
-// دالة تصحيح مشاركة الراديو المباشر مع الأصدقاء على شبكات التواصل
-function shareOnSocial(platform) {
-var pageUrl = encodeURIComponent(window.location.href);
-var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
-var shareWindow = "";
+        if (chatInput) {
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendChatBtn.click();
+            });
+        }
 
-if (platform === 'whatsapp') {
-shareWindow = "whatsapp.com" + text + "%20" + pageUrl;
-} else if (platform === 'facebook') {
-shareWindow = "facebook.com" + pageUrl;
-} else if (platform === 'twitter') {
-shareWindow = "twitter.com" + text + "&url=" + pageUrl;
-}
-if (shareWindow) window.open(shareWindow, '_blank', 'width=600,height=400');
-}
+        setInterval(fetchChatAndStats, 3000);
+        fetchChatAndStats();
+        fetchRadioMeta(); 
+    </script>
+</body>
+</html>
+    
+     
 
-var startLiveBtn = document.getElementById('startRadioLiveBtn');
-if (startLiveBtn) {
-startLiveBtn.onclick = function() {
-if (player) {
-player.src = window.location.origin + "/radio.mp3?t=" + Date.now();
-player.load();
-player.play()
-.then(function() {
-startLiveBtn.innerText = "🟢 أنت تستمع الآن للبث المباشر...";
-startLiveBtn.style.background = "#00ebc7";
-startLiveBtn.style.color = "#0f0e17";
-})
-.catch(function(error) {
-alert("برجاء الضغط مرة أخرى أو التحقق من صلاحيات المتصفح.");
-});
-}
-};
-}
-
-if (chatInput) {
-chatInput.addEventListener('keypress', function(e) {
-if (e.key === 'Enter') sendChatBtn.click();
-});
-}
-
-setInterval(fetchChatAndStats, 3000);
-fetchChatAndStats();
-fetchRadioMeta(); // تشغيل فوري لجلب الهندسة الصوتية والبودكاست الدولي
 
