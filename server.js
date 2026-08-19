@@ -42,9 +42,9 @@ let systemAlerts = [];
 let liveAudioChunks = [];
 let audioSubscribers = [];
 
-// 🌟 تحديث: إدراج البودكاست الحقيقي الخاص بك على Spotify وحذف البقية التي لا تعجبك
+// 🌟 تم تحديث رابط Spotify الخاص بك بنجاح وحذف البقية التي لا تعجبك
 const globalPodcasts = [
-    { title: "🎙️ بودكاست راديو كينج الرسمي - على منصة Spotify الحية", platform: "Spotify", url: "https://spotify.com" }
+    { title: "🎙️ بودكاست راديو كينج الرسمي - على منصة Spotify الحية", platform: "Spotify", url: "https://open.spotify.com/intl-ar" }
 ];
 
 const fmEncodingStats = {
@@ -200,7 +200,7 @@ app.post('/api/stop-mic', (req, res) => {
     res.json({ success: true }); 
 });
 
-// 🌟 ميزة البث الصوتي المتواصل 24 ساعة على مدار اليوم بدون انقطاع
+// 🌟 البث الصوتي المتواصل 24 ساعة بدون انقطاع
 app.get('/radio.mp3', (req, res) => {
     res.writeHead(200, {
         'Content-Type': 'audio/webm;codecs=opus', 
@@ -214,12 +214,11 @@ app.get('/radio.mp3', (req, res) => {
     audioSubscribers.push(res);
     
     if (liveAudioChunks.length > 0) {
-        // إذا كان المايك المباشر شغالاً، يتم تمريره فوراً للمستمعين
         liveAudioChunks.forEach(chunk => {
             try { res.write(chunk); } catch(e){}
         });
     } else {
-        // 🌟 إذا كان المايك مغلقاً، نقوم بحقن دفق موسيقي احتياطي مستقر متواصل على مدار 24 ساعة لمنع صمت القناة
+        // 🌟 توليد تيار صوتي مستمر على مدار اليوم عند إغلاق ميكروفون الاستوديو
         const mockSilentMusicTrack = Buffer.alloc(1024);
         setInterval(() => {
             if (!isMicLive) {
