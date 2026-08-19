@@ -1,78 +1,75 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
+// ==========================================
+// 1. تعريف مسارات المجلدات بدقة على السيرفر
+// ==========================================
+const audioDir = path.join(__dirname, 'audio');
+const publicDir = path.join(__dirname, 'public');
+const imageDir = path.join(publicDir, 'image');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// تفعيل حزمة CORS والسماح بقراءة بيانات الـ JSON القادمة من الـ Front-end
-app.use(cors());
-app.use(express.json());
-
-// ⚠️ حل مشكلة الصور: تفعيل المجلد الساكن لرفع وقراءة الصور المحلية بأمان
-app.use(express.static(path.join(__dirname, 'public')));
-
-// قواعد بيانات مؤقتة داخل الذاكرة (Memory DB) لحفظ البيانات أثناء البث
-let currentLiveTrack = {
-    day: "الآن مباشر",
-    time: "الهواء فوراً",
-    manualUrl: "/images/default-cover.jpg" // صورة افتراضية داخل مجلد public/images
-};
-
-let chatMessages = [
-    { sender: "النظام 🤖", text: "مرحباً بكم في استوديو راديو كينج الذكي المطور!" }
-];
-
-/* ================= الروابط البرمجية (API Routes) ================= */
-
-// 1. جلب رسائل الدردشة والأغنية الحالية
-app.get('/api/messages', (req, res) => {
-    res.json(chatMessages);
-});
-
-// 2. استقبال رسالة جديدة من الفنان أو المستمعين
-app.post('/api/messages', (req, res) => {
-    const { sender, text } = req.body;
-    if (!sender || !text) {
-        return res.status(400).json({ error: "جميع الحقول مطلوبة" });
+// إنشاء المجلدات تلقائياً إذا لم تكن موجودة لتفادي أخطاء النظام
+[audioDir, publicDir, imageDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
     }
-    
-    chatMessages.push({ sender, text });
-    
-    // إبقاء آخر 50 رسالة فقط لتفادي بطء المتصفح
-    if (chatMessages.length > 50) chatMessages.shift();
-    
-    res.status(201).json({ success: true });
 });
 
-// 3. تحديث غلاف الألبوم والأغنية الحية من لوحة الفنان
-app.post('/api/upload-album', (req, res) => {
+// ==========================================
+// 2. إتاحة المجلدات للمتصفح (Static Files)
+// ==========================================
+app.use(express.static(publicDir)); // يجعل محتويات public (بما فيها مجلد image) متاحة مباشرة
+app.use('/audio', express.static(audioDir)); // يتيح الوصول للملفات الصوتية عبر رابط /audio/filename.mp3
+
+// ==========================================
+// 3. محرك الرفع الذكي: توجيه كل ملف حسب نوعه
+// ==========================================
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => { 
+        // إذا كان الملف صورة، يتم توجيهه لمجلد الصور داخل public
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, imageDir); 
+        } else {
+            // إذا كان ملفاً صوتياً، يتم توجيهه لمجلد الصوت الخارجي
+            cb(null, audioDir); 
+        }
+    },
+    filename: (req, file, cb) => { 
+        const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, 'cover_' + uniqueSuffix + ext);
+        } else {
+            cb(null, 'track_' + uniqueSuffix + ext); 
+        }
+    }
+});
+const upload = multer({ storage: storage });
+
+// ==========================================
+// 4. تحديث رابط الرفع (Upload Route) ليعيد الرابط الصحيح
+// ==========================================
+app.post('/api/upload-album', upload.single('audioFile'), (req, res) => {
     const { day, time, manualUrl } = req.body;
     
-    currentLiveTrack = { day, time, manualUrl };
+    // في حال إرسال رابط خارجي من لوحة الفنان
+    if (manualUrl) {
+        currentAlbumImage = manualUrl;
+        fmEncodingStats.rdsText = `بث الألبوم الحالي بواسطة الفنان مباشرة`;
+        return res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
+    }
     
-    // بث رسالة تلقائية في الشات لإعلام المستمعين بالتغيير
-    chatMessages.push({ 
-        sender: "الاستوديو 🎵", 
-        text: `يتم الآن بث مادة جديدة حصرياً على الهواء مباشرة!` 
-    });
+    if (!req.file) { return res.status(400).json({ success: false, message: "لم يتم اختيار ملف !" }); }
 
-    res.json({ success: true, currentLiveTrack });
-});
+    // التحقق أين تم حفظ الملف لإنشاء الرابط الصحيح للمتصفح
+    if (req.file.mimetype.startsWith('image/')) {
+        // بما أن مجلد image داخل public المتاح كملف ساكن، الرابط يبدأ بـ /image/
+        currentAlbumImage = `/image/${req.file.filename}`;
+    } else {
+        // الملفات الصوتية تبدأ بـ /audio/
+        currentAlbumImage = `/audio/${req.file.filename}`;
+    }
 
-// 4. استقبال تفاعلات الإعجاب (Likes)
-app.post('/api/like', (req, res) => {
-    chatMessages.push({ sender: "النظام 👑", text: "تلقينا تفاعل إعجاب جديد بالبث المباشر! ❤️" });
-    res.json({ success: true });
-});
-
-// 5. دالة وهمية لمحاكاة دفق الراديو الصوتي (إذا لم يكن لديك سيرفر بث خارجي مثل Icecast)
-app.get('/radio.mp3', (req, res) => {
-    // هنا يتم تحويل السيرفر لبث لملف صوتي مستمر أو ربطه بدفق الميكروفون
-    res.status(200).json({ message: "هنا يتم ربط دفق صوت المذيع المباشر Live Stream Source" });
-});
-
-/* ================= تشغيل السيرفر ================= */
-app.listen(PORT, () => {
-    console.log(`🚀 السيرفر يعمل بنجاح على الرابط: http://localhost:${PORT}`);
+    fmEncodingStats.rdsText = `ألبوم مجدول: ${day} - ${time}`;
+    messages.push({ sender: "نظام الجدولة 📅", text: `تم رفع وتصنيف مادة إذاعية جديدة بنجاح [${day}] - [${time}]`, time: Date.now() });
+    
+    res.json({ success: true, filepath: currentAlbumImage, coverUrl: currentAlbumImage });
 });
