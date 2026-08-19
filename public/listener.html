@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+       <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -16,7 +16,7 @@
         .card { background: #1f1d2e; padding: 16px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 15px rgba(0,0,0,0.4); margin-bottom: 15px; box-sizing: border-box; }
         .card h3 { margin-top: 0; color: #ff0055; border-bottom: 2px solid #2a283e; padding-bottom: 8px; font-size: 1rem; text-align: right; display: flex; align-items: center; gap: 6px; }
         
-        /* تدمير وحظر ظهور المشغل الافتراضي لمنع التداخل تماماً على شاشات الموبايل */
+        /* تدمير مشغل المتصفح الرمادي الافتراضي لمنع التداخل على شاشات الموبايل */
         audio { display: none !important; width: 0; height: 0; visibility: hidden; }
         
         .audio-controls-wrapper { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
@@ -102,7 +102,7 @@
             <div style="font-size: 11px; color: #a7a6ba; margin-top: 6px; text-align: center;" id="metaRds">RDS: جاري الاتصال بالبث...</div>
         </div>
 
-        <!-- بطاقة البودكاست الحصرية لـ Spotify بعد حذف البقية -->
+        <!-- بطاقة البودكاست الحصرية لمزامنة حساب Spotify الخاص بك -->
         <div class="card">
             <h3>🎙️ دليل حلقاتنا على منصة Spotify العالمية</h3>
             <div class="podcast-list" id="globalPodcastsContainer">
@@ -134,8 +134,10 @@
             <h3>💬 صندوق دردشة المستمعين</h3>
             <div class="chat-messages" id="listenerChatMessages"></div>
             <div class="chat-input-row">
-                <input type="text" id="listenerNameInput" class="chat-input" placeholder="اسمك المستعار..." value="مستمع">
-    <script>
+     
+<script>
+    
+
 var SERVER_URL = window.location.origin;
 var player = document.getElementById('listenerPlayer');
 var startLiveBtn = document.getElementById('startRadioLiveBtn');
@@ -409,6 +411,8 @@ fetchRadioMeta();
 }, 3000);
 fetchChatAndStats();
 fetchRadioMeta();
+
+
 
 
 </script>
