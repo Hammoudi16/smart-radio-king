@@ -146,6 +146,7 @@
 
     
                 // 1. نظام تشغيل البث والتحكم ببدء الصوت المباشر مع تجاوز الكاش والمؤشر البصري
+                // 1. نظام تشغيل البث والتحكم ببدء الصوت المباشر مع تجاوز الكاش والمؤشر البصري والـ Spinner
         if (startLiveBtn) {
             startLiveBtn.onclick = function() {
                 if (player) {
@@ -157,6 +158,11 @@
                         player.type = 'audio/webm; codecs="opus"';
                         player.src = "/radio.mp3?t=" + Date.now();
                         
+                        // إظهار مؤشر التحميل الدائري وتحديث النص فوراً عند النقر
+                        startLiveBtn.innerHTML = '<span class="spinner"></span> جاري الاتصال المباشر بالقناة...';
+                        startLiveBtn.style.background = "#3a3650"; // لون داكن مؤقت أثناء التحميل
+                        startLiveBtn.style.color = "#fffffe";
+                        
                         player.play()
                         .then(function() {
                             startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن...";
@@ -166,9 +172,8 @@
                         })
                         .catch(function(error) {
                             console.log("تنبيه المشغل اللحظي:", error);
-                            startLiveBtn.innerText = "🔊 جاري الاتصال المباشر بالقناة...";
                             
-                            // إصلاح: محاولة إعادة التشغيل التلقائي لمرة واحدة بشكل آمن دون تكرار لانهائي
+                            // محاولة إعادة التشغيل التلقائي لمرة واحدة بشكل آمن في حالة بطء استيقاظ سيرفر Render
                             setTimeout(function(){
                                 player.play()
                                 .then(function() {
@@ -178,12 +183,13 @@
                                     setupVisualizer();
                                 })
                                 .catch(function(){
+                                    // إعادة الزر لوضعه الطبيعي في حال فشل الاتصال تماماً لعدم فتح المذيع للمايكروفون
                                     startLiveBtn.innerText = "▶️ اضغط هنا لبدء الاستماع الفوري للهواء";
                                     startLiveBtn.style.background = "#ff0055";
                                     startLiveBtn.style.color = "#fffffe";
-                                    alert("لم يتم بدء البث بعد من الاستوديو، يرجى الطلب من المذيع فتح المايكروفون.");
+                                    alert("تنبيه: لم يتم بدء البث بعد من الأستوديو، يرجى الطلب من المذيع تشغيل المايكروفون أولاً.");
                                 });
-                            }, 2000); // مهلة ثانيتين للسماح بتهيئة السيرفر
+                            }, 2500); // مهلة ثانيتين ونصف كافية لتهيئة البيانات وتفادي السقوط المؤقت للاتصال
                         });
                     } else {
                         player.pause();
@@ -194,6 +200,7 @@
                 }
             };
         }
+
 
 
 // 2. دالة تشغيل وتحليل ذبذبات أعمدة الصوت (Web Audio API Visualizer)
