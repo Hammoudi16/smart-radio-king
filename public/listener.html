@@ -41,6 +41,22 @@
             50% { transform: translateX(50px) scale(1.1); }
             100% { bottom: 105vh; opacity: 0; transform: translateX(-50px) scale(1); }
         }
+                /* مؤشر التحميل الدائري */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fffffe;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px; /* مسافة بين الدائرة والنص العربي */
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
     </style>
 </head>
 <body>
