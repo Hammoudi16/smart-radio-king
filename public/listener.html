@@ -84,8 +84,7 @@
             </div>
             <div style="font-size: 12px; color: #a7a6ba; margin-top: 8px; text-align: center;" id="metaRds">RDS: جاري الاتصال بالبث اللاسلكي...</div>
         </div>
-
-        <!-- أزرار مشاركة الراديو مع الأصدقاء على وسائل التواصل -->
+ <!-- أزرار مشاركة الراديو مع الأصدقاء على وسائل التواصل -->
         <div class="card">
             <h3>🔗 مشاركة الإذاعة مع الأصدقاء</h3>
             <div class="share-row">
@@ -94,6 +93,7 @@
                 <button class="btn-share share-tw" onclick="shareOnSocial('twitter')">⚫ إكس / تويتر</button>
             </div>
         </div>
+
 
         <!-- كارد أدلة البودكاست على المنصات العالمية الكبرى -->
         <div class="card">
@@ -249,21 +249,35 @@
             setTimeout(function() { div.remove(); }, 5000);
         }
 
-        // دالة تصحيح مشاركة الراديو المباشر مع الأصدقاء على شبكات التواصل
+                // دالة تصحيح ومشاركة الراديو المباشر مع الأصدقاء وتخطي حظر المتصفحات
         function shareOnSocial(platform) {
             var pageUrl = encodeURIComponent(window.location.href);
             var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
-            var shareWindow = "";
+            var shareUrl = "";
 
             if (platform === 'whatsapp') {
-                shareWindow = "https://whatsapp.com" + text + "%20" + pageUrl;
+                // رابط مخصص لفتح تطبيق واتساب على الهاتف مباشرة
+                shareUrl = "https://whatsapp.com" + text + "%20" + pageUrl;
             } else if (platform === 'facebook') {
-                shareWindow = "https://facebook.com" + pageUrl;
+                // رابط مخصص لفتح فيسبوك
+                shareUrl = "https://facebook.com" + pageUrl;
             } else if (platform === 'twitter') {
-                shareWindow = "https://twitter.com" + text + "&url=" + pageUrl;
+                // رابط مخصص لفتح إكس / تويتر
+                shareUrl = "https://twitter.com" + text + "&url=" + pageUrl;
             }
-            if (shareWindow) window.open(shareWindow, '_blank', 'width=600,height=400');
+
+            if (shareUrl) {
+                // الفتح المباشر في تبويب جديد لمنع حظر المتصفح للأزرار
+                var win = window.open(shareUrl, '_blank');
+                if (win) {
+                    win.focus();
+                } else {
+                    // حل احتياطي في حال حظر المتصفح للنافذة بالكامل
+                    window.location.href = shareUrl;
+                }
+            }
         }
+
 
         // تصحيح وتأمين زر تشغيل الصوت وإجبار المتصفح على البث الفوري
         var startLiveBtn = document.getElementById('startRadioLiveBtn');
