@@ -43,14 +43,20 @@
 
       <div class="grid-layout">
         <div class="card">
-          <h3>📊 مؤشرات الاستوديو المباشر</h3>
+          <!-- إضافة شعار الراديو واللوجو المطور داخل الاستوديو الرئيسي -->
+          <div style="display: flex; align-items: center; gap: 15px; justify-content: center; margin-bottom: 15px;">
+              <div style="width: 50px; height: 50px; background: linear-gradient(45deg, #ff0055, #00ebc7); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">👑</div>
+              <h2 style="color: #fffffe; margin: 0; font-size: 1.5rem;">لوحة معالجة RADIO KING</h2>
+          </div>
+          <h3>📊 مؤشرات الاستوديو وقناة الـ FM الحية</h3>
           <p>حالة البث الحالية: <span id="currentStatus" class="status">إستعداد</span></p>
-          <p>المستمعون الآن: <span id="liveListeners" class="status" style="color:#ff0055;">0</span> مستمع</p>
+          <p>المستمعون الآن عبر الإنترنت: <span id="liveListeners" class="status" style="color:#ff0055;">0</span> مستمع</p>
+          <p>تردد الإرسال التماثلي المحاكي: <span class="status" style="color:#00ebc7;">99.5 MHz FM</span></p>
           <p>ساعة الاستوديو: <span id="clock">00:00:00</span></p>
           
           <audio id="radioPlayer" controls preload="auto"></audio>
           <br><br>
-          <label>🔊 مستوى صوت الألبومات:</label>
+          <label>🔊 مستوى صوت الألبومات المجدولة:</label>
           <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
           <br><br>
           <label>🌀 صدى صوت الميكروفون المباشر:</label>
