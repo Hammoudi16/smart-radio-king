@@ -1,21 +1,231 @@
-<!DOCTYPE html> <html lang="ar" dir="rtl"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>لوحة تحكم الفنان - إدارة المحتوى الموسيقي</title> <style> body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 20px; margin: 0; overflow-x: hidden; } .container { max-width: 600px; margin: 0 auto; padding-top: 20px; } .artist-badge { text-align: center; margin-bottom: 15px; } .artist-avatar { background: #ff0055; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; } h1 { text-align: center; color: #fffffe; font-size: 1.8rem; margin: 10px 0 5px 0; } .sub-title { text-align: center; color: #00ebc7; font-size: 0.9rem; margin-bottom: 20px; } .card { background: #1f1d2e; padding: 25px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 20px; } .card h3 { margin-top: 0; color: #a7a6ba; padding-bottom: 10px; font-size: 1.1rem; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; } .btn-play-live { background: #ff0055; color: #fffffe; border: none; padding: 14px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: 0.3s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; } .btn-play-live.playing { background: #00ebc7; color: #0f0e17; } .btn-like-station { background: transparent; border: 1px solid #ff0055; color: #ff0055; padding: 10px; border-radius: 25px; width: 100%; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.3s; } .btn-like-station:hover { background: rgba(255, 0, 85, 0.1); } .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; } .gallery-item { background: #0f0e17; border: 1px solid #2a283e; border-radius: 8px; padding: 15px; text-align: center; } .gallery-preview { width: 100%; height: 90px; background: #1f1d2e; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; border: 1px dashed #4a475a; color: #4a475a; font-size: 24px; overflow: hidden; } .gallery-title { font-size: 12px; color: #a7a6ba; } .chat-messages { height: 180px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 14px; text-align: right; } .chat-input-row { display: flex; gap: 8px; } .chat-input { background: #0f0e17; color: #fffffe; border: 1px solid #4a475a; padding: 12px; border-radius: 6px; box-sizing: border-box; flex: 1; font-size: 13px; } .btn-send { background: #00ebc7; color: #0f0e17; border: none; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; } </style> </head> <body> <div class="container"> <div class="artist-badge"> <span class="artist-avatar">Artist Avatar</span> </div> <h1>إذاعة الفنان المباشرة</h1> <div class="sub-title">بث مستمر 24H | مستعد لتلقي استماعكم</div> <div class="card"> <audio id="artistRadioPlayer" preload="none"></audio> <button id="toggleLiveBtn" class="btn-play-live">▶️ تشغيل البث المباشر</button> <button class="btn-like-station" onclick="sendStationLike()">❤️ أعجبتني هذه المادة الإذاعية</button> </div> <div class="card"> <h3>🎵 معرض الألبومات وبودكاست المحطة</h3> <div class="gallery-grid" id="tracksGallery"> <div class="gallery-item"> <div class="gallery-preview">🎵</div> <div class="gallery-title">ألبوم الموسيقى الهادئة</div> </div> <div class="gallery-item"> <div class="gallery-preview">🎙️</div> <div class="gallery-title">بودكاست عواطف تونسية</div> </div> </div> </div> <div class="card"> <h3>💬 دردشة المستمعين الحية</h3> <div class="chat-messages" id="artistChatMessages"></div> <div class="chat-input-row"> <input type="text" id="artistChatInput" class="chat-input" placeholder="اكتب رسالتك هنا..."> <button id="sendArtistChatBtn" class="btn-send">إرسال</button> </div> </div> </div> <script> var SERVER_URL = window.location.origin; var player = document.getElementById('artistRadioPlayer'); var toggleBtn = document.getElementById('toggleLiveBtn'); var chatMessages = document.getElementById('artistChatMessages'); var chatInput = document.getElementById('artistChatInput'); var sendChatBtn = document.getElementById('sendArtistChatBtn'); var isPlaying = false; if (toggleBtn && player) { toggleBtn.onclick = function() { if (!isPlaying) { player.pause(); player.src = ""; player.load(); player.src = SERVER_URL + "/radio.mp3?t=" + Date.now(); player.setAttribute('type', 'audio/webm;codecs=opus'); player.play() .then(function() { isPlaying = true; toggleBtn.innerText = "⏸️ إيقاف مؤقت"; toggleBtn.style.background = "#00ebc7"; toggleBtn.style.color = "#0f0e17"; toggleBtn.classList.add('playing'); }) .catch(function(err) { console.log("تنبيه المشغل اللحظي لوحة الفنان:", err); toggleBtn.innerText = "🔊 جاري الاتصال المباشر..."; setTimeout(function(){ player.play().then(function(){ isPlaying = true; toggleBtn.innerText = "⏸️ إيقاف مؤقت"; }).catch(function(){ alert("تنبيه البث: يرجى التأكد من أن المذيع قد قام ببدء تشغيل الميكروفون أونلاين أولاً من لوحة الاستوديو لإرسال الصوت."); }); }, 1000); }); } else { player.pause(); player.src = ""; isPlaying = false; toggleBtn.innerText = "▶️ تشغيل البث المباشر"; toggleBtn.style.background = "#ff0055"; toggleBtn.style.color = "#fffffe"; toggleBtn.classList.remove('playing'); } }; } function fetchChatAndTracks() { fetch(SERVER_URL + '/api/current-album?t=' + Date.now()) .then(function(res) { return res.json(); }) .then(function(albumData) { var previews = document.querySelectorAll('.gallery-preview'); if (albumData.coverUrl) { previews.forEach(function(p) { p.innerHTML = `<img src="${SERVER_URL + albumData.coverUrl}?t=${Date.now()}" style="width:100%; height:100%; object-fit:cover; border-radius:6px;">`; }); } }).catch(function(){}); fetch(SERVER_URL + '/api/messages?t=' + Date.now()) .then(function(res) { return res.json(); }) .then(function(messages) { if (!chatMessages) return; chatMessages.innerHTML = ""; if (Array.isArray(messages)) { messages.forEach(function(msg) { var div = document.createElement('div'); div.style.marginBottom = "8px"; var color = msg.sender === "المذيع" || msg.sender.includes("النظام") ? "#ff0055" : "#00ebc7"; if (msg.sender === "الفنان") color = "#ffcc00"; var senderB = document.createElement('b'); senderB.style.color = color; senderB.innerText = msg.sender + ": "; var textNode = document.createTextNode(msg.text); div.appendChild(senderB); div.appendChild(textNode); chatMessages.appendChild(div); }); } chatMessages.scrollTop = chatMessages.scrollHeight; }).catch(function(){}); } if (sendChatBtn) { sendChatBtn.onclick = function(e) { if (e) e.preventDefault(); var text = chatInput.value.trim(); if (!text) return false; chatInput.value = ""; fetch(SERVER_URL + '/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sender: "الفنان", text: text }) }) .then(function() { fetchChatAndTracks(); }) .catch(function(){}); return false; }; } function sendStationLike() { fetch(SERVER_URL + '/api/like', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ liked: true }) }) .then(function() { alert("شكراً لتفاعلك! تم تسجيل إعجابك بالمادة الإذاعية الحالية وإرسال نبضة تنبيه للاستوديو ❤️"); 
+<!DOCTYPE html> 
+<html lang="ar" dir="rtl"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>لوحة تحكم الفنان - إدارة المحتوى الموسيقي</title> 
+    <style> 
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 20px; margin: 0; overflow-x: hidden; } 
+        .container { max-width: 600px; margin: 0 auto; padding-top: 20px; } 
+        .artist-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .artist-badge { text-align: center; } 
+        .artist-avatar { background: #ff0055; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; } 
+        .studio-clock { font-family: monospace; background: #1f1d2e; color: #00ebc7; padding: 4px 12px; border-radius: 6px; font-size: 14px; border: 1px solid #2a283e; }
+        h1 { text-align: center; color: #fffffe; font-size: 1.8rem; margin: 10px 0 5px 0; } 
+        .sub-title { text-align: center; color: #00ebc7; font-size: 0.9rem; margin-bottom: 20px; } 
+        .card { background: #1f1d2e; padding: 25px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 20px; } 
+        .card h3 { margin-top: 0; color: #a7a6ba; padding-bottom: 10px; font-size: 1.1rem; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; } 
+        .btn-play-live { background: #ff0055; color: #fffffe; border: none; padding: 14px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: 0.3s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; } 
+        .btn-play-live.playing { background: #00ebc7; color: #0f0e17; } 
+        .btn-like-station { background: transparent; border: 1px solid #ff0055; color: #ff0055; padding: 10px; border-radius: 25px; width: 100%; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.3s; } 
+        .btn-like-station:hover { background: rgba(255, 0, 85, 0.1); } 
+        .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; } 
+        .gallery-item { background: #0f0e17; border: 1px solid #2a283e; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; } 
+        .gallery-item:hover { border-color: #00ebc7; }
+        .gallery-preview { width: 100%; height: 90px; background: #1f1d2e; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; border: 1px dashed #4a475a; color: #4a475a; font-size: 24px; overflow: hidden; } 
+        .gallery-title { font-size: 12px; color: #a7a6ba; } 
+        .chat-messages { height: 180px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 14px; text-align: right; } 
+        .chat-input-row { display: flex; gap: 8px; } 
+        .chat-input { background: #0f0e17; color: #fffffe; border: 1px solid #4a475a; padding: 12px; border-radius: 6px; box-sizing: border-box; flex: 1; font-size: 13px; } 
+        .btn-send { background: #00ebc7; color: #0f0e17; border: none; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; } 
+    </style> 
+</head> 
+<body> 
+    <div class="container"> 
+        <div class="artist-header-row">
+            <div class="artist-badge"> 
+                <span class="artist-avatar">لوحة الفنان</span> 
+            </div> 
+            <div id="clock" class="studio-clock">00:00:00</div>
+        </div>
 
-})
-.catch(function(){
-alert("شكراً لتفاعلك! تم تسجيل إعجابك بالمادة الإذاعية الحالية ❤️");
+        <h1>إذاعة الفنان المباشرة</h1> 
+        <div class="sub-title">بث مستمر 24H | مستعد لتلقي استماعكم</div> 
+        
+        <div class="card"> 
+            <audio id="artistRadioPlayer" preload="none"></audio> 
+            <button id="toggleLiveBtn" class="btn-play-live">▶️ تشغيل البث المباشر</button> 
+            <button class="btn-like-station" onclick="sendStationLike()">❤️ أعجبتني هذه المادة الإذاعية</button> 
+        </div> 
+
+        <div class="card"> 
+            <h3>🎵 معرض الألبومات وبودكاست المحطة</h3> 
+            <p style="font-size:11px; color:#a7a6ba; text-align:center; margin-top:-5px;">اضغط على أي غلاف لتحديث مظهر الإذاعة للمستمعين فوراً</p>
+            <div class="gallery-grid" id="tracksGallery"> 
+                <!-- عند الضغط يتم تغيير غلاف الراديو ديناميكياً برابط الصورة المحددة -->
+                <div class="gallery-item" onclick="updateRadioCover('/audio/album1.jpg')"> 
+                    <div class="gallery-preview" id="albumPreview">🎵</div> 
+                    <div class="gallery-title">ألبوم الموسيقى الهادئة</div> 
+                </div> 
+                <div class="gallery-item" onclick="updateRadioCover('/audio/podcast1.jpg')"> 
+                    <div class="gallery-preview" id="podcastPreview">🎙️</div> 
+                    <div class="gallery-title">بودكاست عواطف تونسية</div> 
+                </div> 
+            </div> 
+        </div> 
+
+        <div class="card"> 
+            <h3>💬 دردشة المستمعين الحية</h3> 
+            <div class="chat-messages" id="artistChatMessages"></div> 
+            <div class="chat-input-row"> 
+                <input type="text" id="artistChatInput" class="chat-input" placeholder="اكتب رسالتك هنا..."> 
+                <button id="sendArtistChatBtn" class="btn-send">إرسال</button> 
+            </div> 
+        </div> 
+    </div> 
+
+    <script> 
+        var SERVER_URL = window.location.origin; 
+        var player = document.getElementById('artistRadioPlayer'); 
+        var toggleBtn = document.getElementById('toggleLiveBtn'); 
+        var chatMessages = document.getElementById('artistChatMessages'); 
+        var chatInput = document.getElementById('artistChatInput'); 
+        var sendChatBtn = document.getElementById('sendArtistChatBtn'); 
+        var isPlaying = false; 
+
+        function setButtonState(playing) {
+            isPlaying = playing;
+            if (playing) {
+                toggleBtn.innerText = "⏸️ إيقاف مؤقت"; 
+                toggleBtn.style.background = "#00ebc7"; 
+                toggleBtn.style.color = "#0f0e17"; 
+                toggleBtn.classList.add('playing'); 
+            } else {
+                toggleBtn.innerText = "▶️ تشغيل البث المباشر"; 
+                toggleBtn.style.background = "#ff0055"; 
+                toggleBtn.style.color = "#fffffe"; 
+                toggleBtn.classList.remove('playing'); 
+            }
+        }
+
+        if (toggleBtn && player) { 
+            toggleBtn.onclick = function() { 
+                if (!isPlaying) { 
+                    player.pause(); 
+                    player.src = SERVER_URL + "/radio.mp3?t=" + Date.now(); 
+                    player.type = 'audio/webm; codecs="opus"';
+                    player.load(); 
+                    
+                    player.play() 
+                        .then(function() { 
+                            setButtonState(true);
+                        }) 
+                        .catch(function(err) { 
+                            console.log("تنبيه المشغل اللحظي لوحة الفنان:", err); 
+                            toggleBtn.innerText = "🔊 جاري الاتصال المباشر..."; 
+                            
+                            setTimeout(function(){ 
+                                player.play()
+                                    .then(function(){ 
+                                        setButtonState(true);
+                                    })
+                                    .catch(function(){ 
+                                        alert("تنبيه البث: يرجى التأكد من أن المذيع قد قام ببدء تشغيل الميكروفون أولاً."); 
+                                        setButtonState(false);
+                                    }); 
+                            }, 1000); 
+                        }); 
+                } else { 
+                    player.pause(); 
+                    player.src = ""; 
+                    setButtonState(false);
+                } 
+            }; 
+        } 
+
+        // دالة إرسال الغلاف المحدث فوراً إلى سيرفر راديو كينج
+        function updateRadioCover(path) {
+            fetch(SERVER_URL + '/api/upload-album', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ day: "اليوم", time: "الآن مباشر", manualUrl: path })
+            })
+            .then(function() {
+                alert("تم تحديث غلاف الراديو وبثه لجميع المستمعين بنجاح! 🎨");
+                fetchChatAndTracks();
+            }).catch(function() { alert("خطأ في تحديث الغلاف بالسيرفر"); });
+        }
+
+        function fetchChatAndTracks() { 
+            fetch(SERVER_URL + '/api/current-album?t=' + Date.now()) 
+                .then(function(res) { return res.json(); }) 
+                .then(function(albumData) { 
+                    var albumPreview = document.getElementById('albumPreview'); 
+                    if (albumData.coverUrl && albumPreview) { 
+                        albumPreview.innerHTML = '<img src="' + SERVER_URL + albumData.coverUrl + '?t=' + Date.now() + '" style="width:100%; height:100%; object-fit:cover; border-radius:6px;">'; 
+                    } 
+                }).catch(function(){}); 
+
+            fetch(SERVER_URL + '/api/messages?t=' + Date.now()) 
+                .then(function(res) { return res.json(); }) 
+                .then(function(messages) { 
+                    if (!chatMessages) return; 
+                    var oldLength = chatMessages.children.length;
+                    chatMessages.innerHTML = ""; 
+                    if (Array.isArray(messages)) { 
+                        messages.forEach(function(msg) { 
+var div = document.createElement('div');
+div.style.marginBottom = "8px";
+var color = (msg.sender === "المذيع" || msg.sender.includes("النظام")) ? "#ff0055" : "#00ebc7";
+if (msg.sender === "الفنان") color = "#ffcc00";
+var senderB = document.createElement('b');
+senderB.style.color = color;
+senderB.innerText = msg.sender + ": ";
+var textNode = document.createTextNode(msg.text);
+div.appendChild(senderB);
+div.appendChild(textNode);
+chatMessages.appendChild(div);
 });
+if (oldLength > 0 && messages.length > oldLength) {
+var lastMsg = messages[messages.length - 1];
+if (lastMsg.sender === "المذيع" && typeof playStudioAlertSound === "function") {
+playStudioAlertSound();
+}
 }
 
+
+
+if (sendChatBtn) {
+sendChatBtn.onclick = function(e) {
+if (e) e.preventDefault();
+var text = chatInput.value.trim();
+if (!text) return false;
+chatInput.value = "";
+fetch(SERVER_URL + '/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ sender: "الفنان", text: text })
+})
+.then(function() { fetchChatAndTracks(); })
+
+
+
+function sendStationLike() {
+fetch(SERVER_URL + '/api/like', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ liked: true })
+})
+.then(function() { alert("شكراً لتفاعلك! تم تسجيل إعجابك وإرساله للاستوديو ❤️"); })
+.catch(function() { alert("شكراً لتفاعلك! تم تسجيل إعجابك ❤️"); });
+}
 if (chatInput) {
 chatInput.addEventListener('keypress', function(e) {
-if (e.key === 'Enter') sendChatBtn.click();
-});
-}
 
+
+setInterval(function() {
+var clockEl = document.getElementById('clock');
+if (clockEl) {
+var d = new Date();
+clockEl.innerText = d.toLocaleTimeString('en-GB');
+}
+}, 1000);
 setInterval(fetchChatAndTracks, 3000);
 fetchChatAndTracks();
 
+
     </script>
+       
+
 </body>
 </html>
-
