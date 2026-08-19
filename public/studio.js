@@ -53,7 +53,8 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 }); 
 
-// 3. دالة جلب وتحديث الشات والمستمعين
+
+// دالة جلب وتحديث الشات والمستمعين في الاستوديو الرئيسي
 function fetchChatAndStats() {
     var studioChatMessages = document.getElementById('studioChatMessages');
     if (studioChatMessages) {
@@ -67,7 +68,13 @@ function fetchChatAndStats() {
                     div.style.marginBottom = "8px";
                     div.style.textAlign = "right";
                     
-                    var color = msg.sender === "المذيع" ? "#ff0055" : "#00ebc7";
+                    // تمييز الألوان بناءً على نوع مرسل الرسالة لسهولة القراءة والفرز للمذيع
+                    var color = "#00ebc7"; 
+                    if (msg.sender === "المذيع") {
+                        color = "#ff0055";
+                    } else if (msg.sender.includes("النظام")) {
+                        color = "#ffcc00"; // اللون الأصفر التنبيهي لإعجابات وتنبيهات النظام والـ FM
+                    }
                     
                     var senderB = document.createElement('b');
                     senderB.style.color = color;
@@ -91,6 +98,7 @@ function fetchChatAndStats() {
         if (listenersCountEl && data.count !== undefined) listenersCountEl.innerText = data.count;
     }).catch(function() {});
 }
+
 
 // 4. دالة تشغيل الفواصل والـ Jingles
 function playStudioJingle(url) {
