@@ -36,7 +36,6 @@
         .gallery-item:hover, .gallery-item.active-track { border-color: #00ebc7; background: rgba(0, 235, 199, 0.05); }
         .gallery-preview { width: 100%; height: 95px; background: #1f1d2e; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #2a283e; } 
         
-        /* 🛠️ تحسين جودة الصور وضمان تمددها بشكل متناسق ومنع الحظر */
         .gallery-preview img { 
             width: 100%; 
             height: 100%; 
@@ -76,7 +75,7 @@
             <h3>🎵 معرض الأغاني والألبومات الحية</h3> 
             <p style="font-size:10px; color:#a7a6ba; text-align:center; margin-top:-5px;">اضغط على الأغنية لبث اسمها وصورتها الحقيقية فوراً للمستمعين:</p>
             <div class="gallery-grid" id="tracksGallery"> 
-                <!-- يتم حقن الأغاني ديناميكياً لتفادي الروابط المكسورة -->
+                <!-- Les albums s'injectent ici -->
             </div> 
         </div> 
 
@@ -99,31 +98,32 @@
         var sendChatBtn = document.getElementById('sendArtistChatBtn'); 
         var isPlaying = false; 
 
-        // 🛠️ حل مشكلة اختفاء الصور: استخدام روابط الصور المباشرة والمفتوحة والمقاومة للحظر من مصدر خارجي موثوق
+        // 🛠️ الحل الذكي: ربط الألبومات مباشرة بملفات الصور المرفوعة داخل مشروعك
+        // تأكد من مطابقة أسماء الملفات ومساراتها (مثال: إذا كانت داخل مجلد اسمه images ضع /images/album1.jpg)
         var myTracksDatabase = [
             {
                 id: 1,
                 title: "ألبوم الموسيقى الهادئة",
                 artist: "الملك كينج",
-                cover: "https://picsum.photos"
+                cover: "/album1.jpg" 
             },
             {
                 id: 2,
                 title: "بودكاست عواطف تونسية",
                 artist: "الملك كينج",
-                cover: "https://picsum.photos"
+                cover: "/podcast1.jpg" 
             },
             {
                 id: 3,
-                title: "جلسة راي مباشر",
+                title: "ألبوم جديد حصرى",
                 artist: "الملك كينج",
-                cover: "https://picsum.photos"
+                cover: "/album2.jpg" 
             },
             {
                 id: 4,
                 title: "ميكس استوديو كينج",
                 artist: "الملك كينج",
-                cover: "https://picsum.photos"
+                cover: "/poster.jpg" 
             }
         ];
 
@@ -138,7 +138,7 @@
                 
                 item.innerHTML = `
                     <div class="gallery-preview">
-                        <img src="${track.cover}" alt="${track.title}" referrerpolicy="no-referrer">
+                        <img src="${SERVER_URL + track.cover}" alt="${track.title}">
                     </div>
                     <div class="gallery-title">${track.title}</div>
                     <div class="gallery-artist">${track.artist}</div>
@@ -188,7 +188,10 @@
 
         // تشغيل وإيقاف راديو الفنان
         if (toggleBtn) {
-toggleBtn.onclick = function() {if (!isPlaying) {toggleBtn.innerText = "⏸️ إيقاف البث المباشر";toggleBtn.classList.add('playing');isPlaying = true;} else {toggleBtn.innerText = "▶️ تشغيل البث المباشر";toggleBtn.classList.remove('playing');isPlaying = false;}};}function sendStationLike() {alert("شكراً لتفاعلك! تم تسجيل إعجابك بالبث وعرضه في الاستوديو الرئيسي ❤️");}// جلب الشات والتعليقات الحيةfunction fetchChatMessages() {fetch(SERVER_URL + '/api/messages?t=' + Date.now()).then(function(res) { return res.json(); }).then(function(messages) {if (!chatMessages) return;chatMessages.innerHTML = "";if (Array.isArray(messages)) {messages.forEach(function(msg) {var div = document.createElement('div');div.style.marginBottom = "5px";var color = (msg.sender === "المذيع" || msg.sender.includes("النظام")) ? "#ff0055" : "#00ebc7";div.innerHTML = <b style="color: ${color}">${msg.sender}:</b> ${msg.text};chatMessages.appendChild(div);});chatMessages.scrollTop = chatMessages.scrollHeight;}}).catch(function(){});}if (sendChatBtn && chatInput) {sendChatBtn.onclick = function() {var text = chatInput.value.trim();if(text !== "") {chatInput.value = "";fetch(SERVER_URL + '/api/messages', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ sender: "الفنان", text: text })}).then(function() { fetchChatMessages(); });}};}setInterval(fetchChatMessages, 4000);fetchChatMessages();
+            toggleBtn.onclick = function() {
+                if (!isPlaying) {
+                    toggleBtn.innerText = "⏸️ إيقاف البث المباشر";
+toggleBtn.classList.add('playing');isPlaying = true;} else {toggleBtn.innerText = "▶️ تشغيل البث المباشر";toggleBtn.classList.remove('playing');isPlaying = false;}};}function sendStationLike() {alert("شكراً لتفاعلك! تم تسجيل إعجابك بالبث وعرضه في الاستوديو الرئيسي ❤️");}// جلب الشات والتعليقات الحيةfunction fetchChatMessages() {fetch(SERVER_URL + '/api/messages?t=' + Date.now()).then(function(res) { return res.json(); }).then(function(messages) {if (!chatMessages) return;chatMessages.innerHTML = "";if (Array.isArray(messages)) {messages.forEach(function(msg) {var div = document.createElement('div');div.style.marginBottom = "5px";var color = (msg.sender === "المذيع" || msg.sender.includes("النظام")) ? "#ff0055" : "#00ebc7";div.innerHTML = <b style="color: ${color}">${msg.sender}:</b> ${msg.text};chatMessages.appendChild(div);});chatMessages.scrollTop = chatMessages.scrollHeight;}}).catch(function(){});}if (sendChatBtn && chatInput) {sendChatBtn.onclick = function() {var text = chatInput.value.trim();if(text !== "") {chatInput.value = "";fetch(SERVER_URL + '/api/messages', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ sender: "الفنان", text: text })}).then(function() { fetchChatMessages(); });}};}setInterval(fetchChatMessages, 4000);fetchChatMessages();
 </script>
 </html>
 </body>
