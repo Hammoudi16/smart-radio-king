@@ -82,8 +82,9 @@
                     ▶️ اضغط للاستماع المباشر للهواء
                 </button>
                 <div style="text-align: left; margin-bottom: 8px;">
-    <button id="themeToggleBtn" style="background: #2a283e; color: #00ebc7; border: 1px solid #4a475a; padding: 6px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; font-weight: bold;">🌓 تبديل مظهر الإذاعة</button>
+    <button id="themeToggleBtn" style="background: #2a283e; color: #00ebc7; border: 1px solid #4a475a; padding: 6px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; font-weight: bold; width: auto; min-height: auto;">🌓 تبديل مظهر الإذاعة</button>
 </div>
+
 
             </div>
             
@@ -413,23 +414,39 @@ fetchRadioMeta();
 }, 3000);
 fetchChatAndStats();
 fetchRadioMeta();
-// نظام تبديل المظهر اللوني الذكي للمستمعين
-var themeBtn = document.getElementById('themeToggleBtn');
-if (themeBtn) {
-    themeBtn.onclick = function() {
-        if (document.body.style.background === "rgb(240, 240, 246)") {
-            document.body.style.background = "#0f0e17";
-            document.body.style.color = "#fffffe";
-            themeBtn.style.background = "#2a283e";
-            themeBtn.style.color = "#00ebc7";
-        } else {
-            document.body.style.background = "#f0f0f6";
-            document.body.style.color = "#0f0e17";
-            themeBtn.style.background = "#fffffe";
-            themeBtn.style.color = "#ff0055";
+
+        // نظام تبديل المظهر اللوني الذكي للمستمعين
+        var themeBtn = document.getElementById('themeToggleBtn');
+        if (themeBtn) {
+            themeBtn.onclick = function() {
+                // التحقق من النمط الحالي عبر استخدام فئة أو التحقق المباشر من لون الخلفية
+                if (document.body.style.backgroundColor === "rgb(240, 240, 246)") {
+                    document.body.style.backgroundColor = "#0f0e17";
+                    document.body.style.color = "#fffffe";
+                    themeBtn.style.backgroundColor = "#2a283e";
+                    themeBtn.style.color = "#00ebc7";
+                    
+                    // تحويل ألوان الكروت للنمط المظلم
+                    document.querySelectorAll('.card').forEach(function(card) {
+                        card.style.backgroundColor = "#1f1d2e";
+                        card.style.borderColor = "#2a283e";
+                        card.style.color = "#fffffe";
+                    });
+                } else {
+                    document.body.style.backgroundColor = "rgb(240, 240, 246)";
+                    document.body.style.color = "#0f0e17";
+                    themeBtn.style.backgroundColor = "#fffffe";
+                    themeBtn.style.color = "#ff0055";
+                    
+                    // تحويل ألوان الكروت للنمط المضيء لراحة العين
+                    document.querySelectorAll('.card').forEach(function(card) {
+                        card.style.backgroundColor = "#ffffff";
+                        card.style.borderColor = "#dddddd";
+                        card.style.color = "#0f0e17";
+                    });
+                }
+            };
         }
-    };
-}
 
 
 
