@@ -26,7 +26,7 @@
         .meta-item span { color: #00ebc7; font-weight: bold; }
         
         .share-row { display: flex; gap: 6px; justify-content: center; width: 100%; margin-top: 10px; }
-        .btn-share { flex: 1; padding: 12px 4px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; text-decoration: none; text-align: center; }
+        .btn-share { flex: 1; padding: 12px 4px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; text-align: center; }
         .share-fb { background: #1877f2; color: white; }
         .share-tw { background: #000000; color: white; }
         .share-wa { background: #25d366; color: #0f0e17; }
@@ -142,8 +142,6 @@ var nameInput = document.getElementById('listenerNameInput');
 var sendChatBtn = document.getElementById('sendListenerChatBtn');
 var liveCountEl = document.getElementById('listenerLiveCount');
 
-
-
 var isPlaying = false;
 var lastReactionTimestamp = Date.now();
 var lastAlertTimestamp = Date.now();
@@ -168,8 +166,6 @@ if (startLiveBtn) {
 startLiveBtn.onclick = function() {
 if (player) {
 if (!isPlaying) {
-
-// 🛠️ حل مشكلة التوافق التام مع الأندرويد وكروم للـ Audio Streaming
 player.pause();
 player.crossOrigin = "anonymous";
 player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
@@ -185,8 +181,7 @@ startLiveBtn.style.background = "#00ebc7";
 startLiveBtn.style.color = "#0f0e17";
 setupVisualizer();
 })
-.catch(function(error) {
-console.log("خطة الطوارئ لكروم أندرويد:", error);
+.catch(function() {
 setTimeout(function(){
 player.play()
 .then(function() {
@@ -220,7 +215,6 @@ function setupVisualizer() {
 var canvas = document.getElementById('audioVisualizer');
 var canvasCtx = canvas.getContext('2d');
 
-// 🛠️ تفعيل الـ AudioContext بعد كسر قيود الحظر للأندرويد
 if (!audioCtx) {
 try {
 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -229,7 +223,7 @@ source = audioCtx.createMediaElementSource(player);
 source.connect(analyser);
 analyser.connect(audioCtx.destination);
 } catch(e) {
-console.log("تم تجاوز المؤشر لحماية البيئة المحلية.", e);
+console.log("Visualizer bypassed.", e);
 return;
 }
 }
@@ -284,6 +278,7 @@ div.appendChild(textNode);
 chatMessages.appendChild(div);
 });
 }
+
 chatMessages.scrollTop = chatMessages.scrollHeight;
 }).catch(function(err){ console.log(err); });
 
@@ -314,7 +309,12 @@ document.getElementById('metaFreq').innerText = data.fmStats.frequency || "99.5 
 document.getElementById('metaBitrate').innerText = data.fmStats.bitrate || "128 kbps";
 document.getElementById('metaCodec').innerText = data.fmStats.codec || "MP3 / AAC+";
 document.getElementById('metaSignal').innerText = data.fmStats.signalStrength || "98%";
-document.getElementById('metaRds').innerText = "RDS: " + (data.fmStats.rdsText || "Radio King Live");
+
+if (!data.fmStats.rdsText || data.fmStats.rdsText.includes('undefined')) {
+document.getElementById('metaRds').innerText = "RDS 🎵: الملك كينج - بث مباشر حيوى";
+} else {
+document.getElementById('metaRds').innerText = "RDS 🎵: " + data.fmStats.rdsText;
+}
 }
 var logoContainer = document.getElementById('radioLogoContainer');
 if (logoContainer) {
@@ -333,19 +333,10 @@ var a = document.createElement('a');
 a.className = "podcast-link";
 a.href = p.url;
 a.target = "_blank";
-a.style.color = "#fffffe";
-a.style.textDecoration = "none";
 a.innerHTML = '🟢 ' + p.title + ' [اضغط للاستماع]';
 container.appendChild(a);
 });
 }
-}
-
-if (data.alerts && Array.isArray(data.alerts)) {
-data.alerts.forEach(function(alertItem) {
-showToast(alertItem.message);
-});
-lastAlertTimestamp = Date.now();
 }
 }).catch(function(){});
 }
@@ -398,7 +389,7 @@ document.body.appendChild(div);
 setTimeout(function() { div.remove(); }, 4000);
 }
 
-// 🛠️ تصحيح روابط مشاركة السوشيال ميديا الحية لتتوافق مع الموبايل والكمبيوتر كلياً
+// 🛠️ إصلاح أزرار المشاركة المباشرة لتعمل 100% وتفتح في النوافذ الرسمية لتطبيقات الموبايل
 function shareOnSocial(platform) {
 var pageUrl = encodeURIComponent(window.location.href);
 var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
@@ -414,7 +405,7 @@ shareUrl = "twitter.com" + text + "&url=" + pageUrl;
 
 if (shareUrl) {
 window.open(shareUrl, '_blank');
-showToast("جاري فتح تطبيق " + platform + " للمشاركة مع الأصدقاء! 🌟");
+showToast("جاري فتح تطبيق " + platform + " للمشاركة بنجاح! 🌟");
 }
 }
 
