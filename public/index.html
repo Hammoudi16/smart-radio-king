@@ -1,243 +1,154 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>استوديو راديو كينج الذكي - لوحة المذيع</title>
-    <!-- جلب مكتبة الرسوم البيانية العالمية Chart.js عبر رابط آمن ومجرب 100% -->
-    <script src="https://jsdelivr.net"></script>
+    <title>استوديو راديو كينج الاحترافي - لوحة المذيع</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 12px; margin: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
-        .container { max-width: 600px; margin: 0 auto; }
+        .container { max-width: 100%; margin: 0 auto; }
         h1 { text-align: center; color: #ff0055; font-size: 1.6rem; margin: 10px 0 20px 0; text-shadow: 0 0 10px rgba(255, 0, 85, 0.3); font-weight: 800; }
         .grid-layout { display: flex; flex-direction: column; gap: 15px; }
         .card { background: #1f1d2e; padding: 16px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 15px rgba(0,0,0,0.4); box-sizing: border-box; }
         .card h3 { margin-top: 0; color: #ff0055; border-bottom: 2px solid #2a283e; padding-bottom: 8px; font-size: 1rem; text-align: right; display: flex; align-items: center; gap: 6px; }
         
+        /* أزرار ضخمة مرنة مخصصة للمس بإصبع اليد على الهاتف */
         button { background: #ff0055; color: #fffffe; border: none; padding: 14px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin: 6px 0; font-size: 13px; display: flex; align-items: center; justify-content: center; min-height: 48px; box-sizing: border-box; }
+        button:hover { background: #ff3377; }
         button:disabled { background: #4a475a !important; cursor: not-allowed; color: #a7a6ba; }
         
-        .status { color: #00ebc7; font-weight: bold; }
-        input { background: #0f0e17; color: #fffffe; border: 1px solid #4a475a; padding: 12px; border-radius: 8px; margin: 6px 0; width: 100%; box-sizing: border-box; font-size: 13px; min-height: 44px; }
+        .status { color: #00ebc7; font-weight: bold; text-shadow: 0 0 5px rgba(0, 235, 199, 0.2); }
+        input, select { background: #0f0e17; color: #fffffe; border: 1px solid #4a475a; padding: 12px; border-radius: 8px; margin: 6px 0; width: 100%; box-sizing: border-box; font-size: 13px; min-height: 44px; }
         input[type="range"] { accent-color: #ff0055; background: #2a283e; height: 8px; border-radius: 4px; padding: 0; min-height: auto; }
         
-        .chat-messages { height: 140px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; text-align: right; }
+        .chat-messages { height: 140px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
         .chat-input-row { display: flex; flex-direction: column; gap: 6px; }
-        .vu-meter-container { width: 100%; height: 12px; background: #0f0e17; border-radius: 4px; border: 1px solid #2a283e; overflow: hidden; margin-top: 8px; }
-        .vu-meter-bar { height: 100%; width: 0%; background: linear-gradient(to left, #00ebc7, #ffcc00, #ff0055); transition: width 0.1s ease; }
+        .jingle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .btn-jingle { background: #3a2856; border: 1px solid #ff0055; font-size: 11px; padding: 10px 4px; min-height: 42px; margin: 0; }
+        .btn-jingle:hover { background: #ff0055; }
         
-        /* تصميم منسق للبادجات والأوسمة الإذاعية في الشات */
-        .badge-admin { background: #ff0055; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 4px; }
-        .badge-artist { background: #ffcc00; color: #0f0e17; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 4px; }
-        .badge-listener { background: #00ebc7; color: #0f0e17; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 4px; }
+        #securityOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f0e17; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: #1f1d2e; padding: 25px; border-radius: 12px; border: 1px solid #ff0055; width: 92%; max-width: 380px; text-align: center; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); box-sizing: border-box; }
+        
+        /* مؤشر مستوى الصوت الاحترافي VU Meter */
+        .vu-meter-container { width: 100%; height: 12px; background: #0f0e17; border-radius: 4px; border: 1px solid #2a283e; overflow: hidden; margin-top: 8px; position: relative; }
+        .vu-meter-bar { height: 100%; width: 0%; background: linear-gradient(to left, #00ebc7, #ffcc00, #ff0055); transition: width 0.1s ease; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
 
-    <div class="container" id="studioMainContent">
-        <h1>🎙️ استوديو راديو كينج الذكي</h1>
-
-        <div class="grid-layout">
-            <!-- بطاقة المؤشرات والرسوم البيانية المحدثة -->
-            <div class="card">
-                <h3>📊 مؤشرات الاستوديو وقناة الـ FM الحية</h3>
-                <p>حالة البث الحالية: <span id="currentStatus" class="status">إستعداد</span></p>
-                <p>المستمعون الآن عبر الإنترنت: <span id="liveListeners" class="status" style="color:#ff0055;">0</span> مستمع</p>
-                <p>تردد الإرسال التماثلي: <span class="status" style="color:#00ebc7;">99.5 MHz FM</span></p>
-                
-                <!-- 📊 الميزة الأولى: حاوية الرسم البياني الذكي للمستمعين -->
-                <div style="width: 100%; margin-top: 12px; background: #0f0e17; padding: 10px; border-radius: 8px; border: 1px solid #2a283e; box-sizing: border-box;">
-                    <canvas id="audienceChart" style="width: 100% !important; height: 140px !important;"></canvas>
-                </div>
-                
-                <audio id="radioPlayer" style="display:none !important;"></audio>
-                <br>
-                <label style="font-size: 12px; color: #a7a6ba;">🔊 مستوى صوت الألبومات المجدولة:</label>
-                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
-            </div>
-
-            <!-- بطاقة المايكروفون والعداد البصري -->
-            <div class="card">
-                <h3>🎤 التحكم في الميكروفون والبث المباشر</h3>
-                <button id="startMicBtn">🔴 تشغيل الميكروفون وبث مباشر الآن</button>
-                <button id="stopMicBtn" disabled style="background: #4a475a;">إيقاف البث والتحويل التلقائي</button>
-                
-                <label style="font-size: 12px; color: #a7a6ba; margin-top: 5px; display: block;">🎚️ مؤشر جهارة الصوت الحي (VU):</label>
-                <div class="vu-meter-container">
-                    <div id="vuMeterBar" class="vu-meter-bar"></div>
-                </div>
-            </div>
-
-            <!-- بطاقة صندوق الدردشة الموحد المطور بالأوسمة -->
-            <div class="card">
-                <h3>💬 دردشة المستمعين (الاستوديو)</h3>
-                <div class="chat-messages" id="studioChatMessages"></div>
-                <div class="chat-input-row">
-                    <input type="text" id="studioChatInput" placeholder="اكتب رد المذيع هنا...">
-                    <button id="sendStudioChatBtn" style="margin: 0; background: #00ebc7; color: #0f0e17;">إرسال الرد للهواء</button>
-                </div>
-            </div>
+    <!-- واجهة الدخول الأمنية المتجاوبة للموبايل -->
+    <div id="securityOverlay">
+        <div class="login-box">
+            <h2 style="color: #ff0055; margin-top:0; font-size: 1.3rem;">🔐 أمان استوديو كينج</h2>
+            <p style="color: #a7a6ba; font-size:12px;">الرجاء إدخال الرمز السري للمذيع للوصول إلى وحدة البث واللوائح</p>
+            <input type="password" id="studioPassInput" placeholder="أدخل كلمة المرور السرية هنا...">
+            <button id="submitPassBtn" style="background: #00ebc7; color: #0f0e17; font-weight: bold;">دخول الاستوديو</button>
         </div>
     </div>
 
+    <!-- المحتوى الرئيسي المتجاوب بالكامل للمذيع -->
+    <div class="container" id="studioMainContent" style="display: none !important;">
+      <h1>🎙️ استوديو راديو كينج الذكي</h1>
+
+      <div class="grid-layout">
+        <!-- بطاقة المؤشرات والـ FM -->
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 12px;">
+              <div style="width: 42px; height: 42px; background: linear-gradient(45deg, #ff0055, #00ebc7); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;">👑</div>
+              <h2 style="color: #fffffe; margin: 0; font-size: 1.1rem;">لوحة معالجة RADIO KING</h2>
+          </div>
+          <h3>📊 مؤشرات الاستوديو وقناة الـ FM الحية</h3>
+          <p style="font-size: 13px; margin: 6px 0;">حالة البث الحالية: <span id="currentStatus" class="status">إستعداد</span></p>
+          <p style="font-size: 13px; margin: 6px 0;">المستمعون الآن عبر الإنترنت: <span id="liveListeners" class="status" style="color:#ff0055;">0</span> مستمع</p>
+          <p style="font-size: 13px; margin: 6px 0;">تردد الإرسال التماثلي المحاكي: <span class="status" style="color:#00ebc7;">99.5 MHz FM</span></p>
+          <p style="font-size: 13px; margin: 6px 0;">ساعة الاستوديو: <span id="clock">00:00:00</span></p>
+          
+          <!-- مشغل الصوت مخفي برمجياً لمنع التداخل تشغيلياً -->
+          <audio id="radioPlayer" controls preload="auto" style="display:none !important;"></audio>
+          
+          <br>
+          <label style="font-size: 12px; color: #a7a6ba;">🔊 مستوى صوت الألبومات المجدولة:</label>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+          <br><br>
+          <label style="font-size: 12px; color: #a7a6ba;">🌀 صدى صوت الميكروفون المباشر:</label>
+          <input type="range" id="echoSlider" min="0" max="0.8" step="0.1" value="0">
+        </div>
+
+        <!-- بطاقة المايكروفون وعداد الصوت الاحترافي VU Meter الجديد للمنافسة -->
+        <div class="card">
+          <h3>🎤 التحكم في الميكروفون والبث المباشر</h3>
+          <button id="startMicBtn">🔴 تشغيل الميكروفون وبث مباشر الآن</button>
+          <button id="stopMicBtn" disabled style="background: #4a475a;">إيقاف البث والتحويل التلقائي</button>
+          
+          <label style="font-size: 12px; color: #a7a6ba; margin-top: 5px; display: block;">🎚️ مؤشر جهارة الصوت الحي (VU Meter):</label>
+          <div class="vu-meter-container">
+              <div id="vuMeterBar" class="vu-meter-bar"></div>
+          </div>
+          
+          <button id="alertBeepBtn" onclick="playStudioAlertSound()" style="background: #00ebc7; color: #0f0e17; margin-top: 12px;">🔔 إرسال صوت تنبيه (Beep Effect)</button>
+        </div>
+
+        <!-- بطاقة الفواصل والـ Jingles السريعة -->
+        <div class="card">
+          <h3>🌀 لوحة الفواصل والـ Jingles</h3>
+          <p style="font-size: 11px; color: #a7a6ba; text-align: center; margin: 0 0 5px 0;">اضغط لبث فاصل إذاعي سريع من السيرفر للمستمعين:</p>
+          <div class="jingle-grid">
+             <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle1.mp3')">🎵 فاصل غنائي</button>
+             <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle2.mp3')">📢 إعلان تجاري</button>
+             <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle3.mp3')">🔔 شارة البداية</button>
+             <button class="btn-jingle" onclick="playStudioJingle('/audio/jingle4.mp3')">⚡ نغمة سريعة</button>
+          </div>
+        </div>
+
+        <!-- بطاقة صندوق الدردشة الموحد للمذيع -->
+        <div class="card">
+          <h3>💬 دردشة المستمعين (الاستوديو)</h3>
+          <div class="chat-messages" id="studioChatMessages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="studioChatInput" class="chat-input" placeholder="اكتب رد المذيع هنا...">
+            <button id="sendStudioChatBtn" style="margin: 0; width: 100%; background: #00ebc7; color: #0f0e17;">إرسال الرد للهواء</button>
+          </div>
+        </div>
+
+        <!-- بطاقة إدارة كلمة المرور الحية أونلاين -->
+        <div class="card">
+          <h3>🔄 إدارة الحماية والأمان</h3>
+          <p style="font-size: 11px; color: #a7a6ba; margin: 0 0 5px 0;">تحديث رمز الدخول السري للاستوديو أونلاين على السيرفر:</p>
+          <input type="password" id="newPassInput" placeholder="اكتب كلمة المرور الجديدة هنا...">
+          <button id="changePassBtn" style="background: #00ebc7; color: #0f0e17;">تحديث وتفعيل الرمز الجديد 🔐</button>
+        </div>
+      </div>
+
+      <!-- بطاقة نظام الجدولة الأسبوعية المتقدم بـ IndexedDB -->
+      <div class="card" style="margin-top: 15px;">
+        <h3>📅 نظام جدولة الألبومات الأسبوعي المباشر</h3>
+        <label style="font-size: 12px; color: #a7a6ba;">اختر الملفات الصوتية للألبوم:</label>
+        <input type="file" id="albumFiles" name="audioFile" multiple accept="audio/*">
+        
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: #a7a6ba;">يوم البث:</label>
+            <select id="schedDay">
+              <option value="0">الأحد</option>
+              <option value="1">الإثنين</option>
+              <option value="2">الثلاثاء</option>
+              <option value="3">الأربعاء</option>
+              <option value="4">الخميس</option>
+              <option value="5">الجمعة</option>
+              <option value="6">السبت</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: #a7a6ba;">ساعة البدء:</label>
+            <input type="time" id="schedTime">
+          </div>
+        </div>
+        <button id="saveSchedBtn" style="background: #00ebc7; color: #0f0e17; margin-top: 8px;">💾 حفظ وتثبيت الجدولة في الذاكرة التلقائية</button>
+      </div>
+    </div>
 <script>
-    var SERVER_URL = window.location.origin;
-    var studioChatMessages = document.getElementById('studioChatMessages');
-    var studioChatInput = document.getElementById('studioChatInput');
-    var sendStudioChatBtn = document.getElementById('sendStudioChatBtn');
-    var liveListenersEl = document.getElementById('liveListeners');
-    var vuMeterBar = document.getElementById('vuMeterBar');
-    
-    var isMicStreaming = false;
-    var previousListenerCount = 0;
-
-    // 📊 تهيئة ميزة الرسم البياني الإحصائي (Chart.js)
-    var ctx = document.getElementById('audienceChart').getContext('2d');
-    var audienceData =;
-    var timeLabels = ["البدء"];
-    
-    var audienceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: timeLabels,
-            datasets: [{
-                data: audienceData,
-                borderColor: '#00ebc7',
-                backgroundColor: 'rgba(0, 235, 199, 0.05)',
-                borderWidth: 2,
-                tension: 0.4,
-                pointBackgroundColor: '#ff0055',
-                pointRadius: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { color: '#2a283e' }, ticks: { color: '#a7a6ba', font: { size: 9 } } },
-                y: { grid: { color: '#2a283e' }, ticks: { color: '#a7a6ba', font: { size: 9 } }, beginAtZero: true }
-            }
-        }
-    });
-
-    function updateChartData(newCount) {
-        var now = new Date();
-        var timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        
-        timeLabels.push(timeStr);
-        audienceData.push(newCount);
-        
-        if (timeLabels.length > 8) {
-            timeLabels.shift();
-            audienceData.shift();
-        }
-        audienceChart.update();
-    }
-
-    // محاكاة لحركة مؤشر VU Meter البصري عند تفعيل البث
-    function simulateVuMeter() {
-        if (isMicStreaming && vuMeterBar) {
-            var level = Math.floor(Math.random() * 65) + 30;
-            vuMeterBar.style.width = level + "%";
-        }
-    }
-    setInterval(simulateVuMeter, 140);
-
-    // جلب وتحديث البيانات والشات بالأوسمة المميزة
-    function fetchChatAndStats() {
-        fetch('/api/messages?t=' + Date.now())
-        .then(function(res) { return res.json(); })
-        .then(function(messages) {
-            if (!studioChatMessages) return;
-            studioChatMessages.innerHTML = "";
-            if (Array.isArray(messages)) {
-                messages.forEach(function(msg) {
-                    var div = document.createElement('div');
-                    div.style.marginBottom = "6px";
-                    
-                    // 👑 الميزة الثانية: تصنيف وحقن الشارات (Badges) بناءً على مرسل الرسالة لمنع التزوير
-                    var badgeHTML = `<span class="badge-listener">مستمع</span>`;
-                    if (msg.sender === "المذيع") {
-                        badgeHTML = `<span class="badge-admin">🎙️ المذيع</span>`;
-                    } else if (msg.sender === "الفنان") {
-                        badgeHTML = `<span class="badge-artist">👑 الفنان كينج</span>`;
-                    } else if (msg.sender.includes("النظام")) {
-                        badgeHTML = `<span class="badge-admin">🤖 النظام</span>`;
-                    }
-                    
-                    div.innerHTML = `${badgeHTML} <b>${msg.sender}:</b> <span>${msg.text}</span>`;
-                    studioChatMessages.appendChild(div);
-                });
-                studioChatMessages.scrollTop = studioChatMessages.scrollHeight;
-            }
-        }).catch(function(err){});
-
-        // جلب الإحصائيات الحية وتحديث المنحنى البياني وصوت التنبيه
-        fetch('/api/listeners-count?t=' + Date.now())
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data.count !== undefined) {
-                liveListenersEl.innerText = data.count;
-                updateChartData(data.count);
-                
-
-
-// 🔊 الميزة الرابعة: تشغيل تنبيه صوتي في الاستوديو في حال دخول مستمع جديد
-if (data.count > previousListenerCount && previousListenerCount !== 0) {
-var audioAlert = new Audio('mixkit.co');
-audioAlert.volume = 0.4;
-audioAlert.play().catch(function(){});
-}
-previousListenerCount = data.count;
-}
-}).catch(function(){});
-}
-
-// تفعيل أحداث أزرار الميكروفون
-var startMicBtn = document.getElementById('startMicBtn');
-var stopMicBtn = document.getElementById('stopMicBtn');
-if (startMicBtn && stopMicBtn) {
-startMicBtn.onclick = function() {
-isMicStreaming = true;
-document.getElementById('currentStatus').innerText = "بث مباشر الآن 🔴";
-document.getElementById('currentStatus').style.color = "#ff0055";
-startMicBtn.disabled = true;
-stopMicBtn.disabled = false;
-stopMicBtn.style.background = "#ff0055";
-};
-stopMicBtn.onclick = function() {
-isMicStreaming = false;
-document.getElementById('currentStatus').innerText = "إستعداد";
-document.getElementById('currentStatus').style.color = "#00ebc7";
-startMicBtn.disabled = false;
-stopMicBtn.disabled = true;
-if (vuMeterBar) vuMeterBar.style.width = "0%";
-};
-}
-
-// إرسال شات المذيع
-if (sendStudioChatBtn && studioChatInput) {
-sendStudioChatBtn.onclick = function() {
-var text = studioChatInput.value.trim();
-if (!text) return;
-studioChatInput.value = "";
-fetch('/api/messages', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ sender: "المذيع", text: text })
-}).then(function() { fetchChatAndStats(); });
-};
-studioChatInput.addEventListener('keypress', function(e) {
-if (e.key === 'Enter') sendStudioChatBtn.click();
-});
-}
-
-setInterval(fetchChatAndStats, 3000);
-fetchChatAndStats();
-
-
-
+  // دالة محاكاة عداد الصوت VU الرسومي الاحترافي لتشغيله بشكل ديناميكي وممتع أثناء البث المباشر function simulateVuMeter() { var vuBar = document.getElementById('vuMeterBar'); var StatusEl = document.getElementById('currentStatus'); if (vuBar) { if (statusEl &&statusEl.innerText.includes("مباشر")) { varlevel = Math.floor(Math.random() * (95 - 30) + 30); vuBar.style.width =level + "%"; } else { vuBar.style.width = "0%"; } } } setInterval(simulateVuMeter, 150);
 </script>
 </html>
-</body>
+  </body>
