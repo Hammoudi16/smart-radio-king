@@ -1,12 +1,13 @@
-<!DOCTYPE html>
+       <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>📻 راديو كينج بث مباشر - استماع وتفاعل</title>
+    <link rel="icon" type="image/png" href="https://icons8.com">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0e17; color: #fffffe; padding: 12px; margin: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; } 
-        .container { max-width: 500px; margin: 0 auto; padding-top: 5px; }
+        .container { max-width: 100%; margin: 0 auto; padding-top: 5px; }
         .brand-header { text-align: center; margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
         .radio-logo { width: 80px; height: 80px; background: linear-gradient(45deg, #ff0055, #00ebc7); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; box-shadow: 0 0 15px rgba(255, 0, 85, 0.4); border: 2px solid #fffffe; overflow: hidden; }
         .radio-logo img { width: 100%; height: 100%; object-fit: cover; }
@@ -15,24 +16,28 @@
         .card { background: #1f1d2e; padding: 16px; border-radius: 12px; border: 1px solid #2a283e; box-shadow: 0 4px 15px rgba(0,0,0,0.4); margin-bottom: 15px; box-sizing: border-box; }
         .card h3 { margin-top: 0; color: #ff0055; border-bottom: 2px solid #2a283e; padding-bottom: 8px; font-size: 1rem; text-align: right; display: flex; align-items: center; gap: 6px; }
         
+        /* تدمير مشغل المتصفح الرمادي الافتراضي لمنع التداخل على شاشات الموبايل */
         audio { display: none !important; width: 0; height: 0; visibility: hidden; }
         
-        .audio-controls-wrapper { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
-        .btn-start-live { background: #ff0055; color: #fffffe; border: none; padding: 14px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 13px; transition: 0.2s; display: flex; align-items: center; justify-content: center; min-height: 48px; }
+        .audio-controls-wrapper { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        .btn-start-live { background: #ff0055; color: #fffffe; border: none; padding: 14px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1; font-size: 13px; transition: 0.2s; display: flex; align-items: center; justify-content: center; min-height: 48px; }
+        .btn-mute-toggle { background: #2a283e; color: #fffffe; border: 1px solid #4a475a; border-radius: 8px; padding: 12px; cursor: pointer; font-size: 16px; transition: 0.2s; display: flex; align-items: center; justify-content: center; width: 50px; min-height: 48px; box-sizing: border-box; }
+        .btn-mute-toggle.muted-active { background: #ff0055; border-color: #ff0055; }
         
         canvas { width: 100% !important; height: 75px !important; background: #0f0e17; border-radius: 6px; border: 1px solid #2a283e; display: block; box-sizing: border-box; }
         .fm-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: right; font-size: 11px; background: #0f0e17; padding: 10px; border-radius: 8px; border: 1px solid #2a283e; }
         .meta-item { color: #fffffe; }
         .meta-item span { color: #00ebc7; font-weight: bold; }
         
-        .share-row { display: flex; gap: 6px; justify-content: center; width: 100%; margin-top: 10px; }
-        .btn-share { flex: 1; padding: 12px 4px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; text-align: center; }
+        .share-row { display: flex; gap: 6px; justify-content: center; width: 100%; }
+        .btn-share { flex: 1; padding: 10px 4px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 40px; }
         .share-fb { background: #1877f2; color: white; }
-        .share-tw { background: #000000; color: white; }
+        .share-tw { background: #1da1f2; color: white; }
         .share-wa { background: #25d366; color: #0f0e17; }
         
         .podcast-list { display: flex; flex-direction: column; gap: 6px; text-align: right; }
         .podcast-link { background: #0f0e17; padding: 12px; border-radius: 6px; border: 1px solid #2a283e; color: #fffffe; text-decoration: none; font-size: 12px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; transition: 0.3s; }
+        .podcast-link:hover { border-color: #00ebc7; background: rgba(0, 235, 199, 0.05); }
         
         .chat-messages { height: 140px; overflow-y: auto; background: #0f0e17; border: 1px solid #2a283e; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; text-align: right; }
         .chat-input-row { display: flex; flex-direction: column; gap: 6px; }
@@ -65,17 +70,22 @@
         <div class="brand-header">
             <div class="radio-logo" id="radioLogoContainer">👑</div>
             <h1>RADIO KING</h1>
-            <div class="sub-title">المستمعين المتصلين حالياً: <b id="listenerLiveCount" style="color:#00ebc7">0</b> مستمع</div>
+            <div class="sub-title">المستمعين المتصلين حالياً: <b id="listenerLiveCount" style="color:#00ebc7">1</b> مستمع</div>
         </div>
 
         <div class="card">
             <h3>🎵 البث الإذاعي الحي المباشر</h3>
-            <audio id="listenerPlayer" crossorigin="anonymous"></audio>
+            <audio id="listenerPlayer" controls preload="none" crossorigin="anonymous"></audio>
             
             <div class="audio-controls-wrapper">
                 <button id="startRadioLiveBtn" class="btn-start-live">
                     ▶️ اضغط للاستماع المباشر للهواء
                 </button>
+                <div style="text-align: left; margin-bottom: 8px;">
+    <button id="themeToggleBtn" style="background: #2a283e; color: #00ebc7; border: 1px solid #4a475a; padding: 6px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; font-weight: bold; width: auto; min-height: auto;">🌓 تبديل مظهر الإذاعة</button>
+</div>
+
+
             </div>
             
             <div style="text-align: center; margin-top: 5px;">
@@ -86,18 +96,19 @@
         <div class="card">
             <h3>🎛️ لوحة ترميز مغير الموجات ونظام الـ FM</h3>
             <div class="fm-meta-grid">
-                <div class="meta-item">تردد القناة: <span id="metaFreq">99.5 FM</span></div>
-                <div class="meta-item">معدل الترميز: <span id="metaBitrate">128 kbps</span></div>
-                <div class="meta-item">نظام الصوت: <span id="metaCodec">MP3 / AAC+</span></div>
-                <div class="meta-item">جودة الإشارة: <span id="metaSignal">98%</span></div>
+                <div class="meta-item">تردد القناة: <span id="metaFreq">--</span></div>
+                <div class="meta-item">معدل الترميز: <span id="metaBitrate">--</span></div>
+                <div class="meta-item">نظام الصوت: <span id="metaCodec">--</span></div>
+                <div class="meta-item">جودة الإشارة: <span id="metaSignal">--</span></div>
             </div>
             <div style="font-size: 11px; color: #a7a6ba; margin-top: 6px; text-align: center;" id="metaRds">RDS: جاري الاتصال بالبث...</div>
         </div>
 
+        <!-- بطاقة البودكاست الحصرية لمزامنة حساب Spotify الخاص بك -->
         <div class="card">
             <h3>🎙️ دليل حلقاتنا على منصة Spotify العالمية</h3>
             <div class="podcast-list" id="globalPodcastsContainer">
-                <p style="color:#a7a6ba; font-size:11px; text-align:center;">لا توجد حلقات بودكاست مجدولة حالياً...</p>
+                <p style="color:#a7a6ba; font-size:11px; text-align:center;">جاري مزامنة المنصة الحية...</p>
             </div>
         </div>
 
@@ -112,114 +123,116 @@
             </div>
         </div>
 
-        
-<div class="card">
-    <h3>🔗 مشاركة الإذاعة مع الأصدقاء</h3>
-    <div class="share-row">
-        <!-- 🟢 روابط ثابتة ومباشرة لمنع الـ # ومنع الحظر على الأندرويد كلياً -->
-        <a href="https://whatsapp.com" target="_blank" class="btn-share share-wa" style="color: #0f0e17; text-decoration: none;">🟢 واتساب</a>
-        
-        <a href="https://facebook.com" target="_blank" class="btn-share share-fb" style="color: white; text-decoration: none;">🔵 فيسبوك</a>
-        
-        <a href="https://twitter.com" target="_blank" class="btn-share share-tw" style="color: white; text-decoration: none;">⚫ إكس</a>
-    </div>
-</div>
+        <div class="card">
+            <h3>🔗 مشاركة الإذاعة مع الأصدقاء</h3>
+            <div class="share-row">
+                <button class="btn-share share-wa" onclick="shareOnSocial('whatsapp')">🟢 واتساب</button>
+                <button class="btn-share share-fb" onclick="shareOnSocial('facebook')">🔵 فيسبوك</button>
+                <button class="btn-share share-tw" onclick="shareOnSocial('twitter')">⚫ إكس</button>
+            </div>
+        </div>
 
-
+                <!-- بطاقة صندوق دردشة المستمعين المؤمّنة بالكامل -->
         <div class="card" style="box-sizing: border-box; width: 100%;">
             <h3>💬 صندوق دردشة المستمعين</h3>
             <div class="chat-messages" id="listenerChatMessages"></div>
-            <div class="chat-input-row">
+            <div class="chat-input-row" style="display: flex; flex-direction: column; gap: 8px;">
                 <input type="text" id="listenerNameInput" class="chat-input" placeholder="اسمك المستعار..." value="مستمع">
                 <input type="text" id="listenerChatInput" class="chat-input" placeholder="اكتب رسالتك للمذيع هنا...">
-                <button id="sendListenerChatBtn" class="send-btn">إرسال التعليق للهواء</button>
+                <button id="sendListenerChatBtn" class="send-btn" style="width: 100%; display: block; background: #00ebc7; color: #0f0e17; font-weight: bold; min-height: 44px; margin: 4px 0;">إرسال التعليق للهواء</button>
             </div>
         </div>
-    </div>
 
 <script>
+    
+
 var SERVER_URL = window.location.origin;
 var player = document.getElementById('listenerPlayer');
 var startLiveBtn = document.getElementById('startRadioLiveBtn');
+var muteToggleBtn = document.getElementById('muteToggleBtn');
 var chatMessages = document.getElementById('listenerChatMessages');
 var chatInput = document.getElementById('listenerChatInput');
 var nameInput = document.getElementById('listenerNameInput');
 var sendChatBtn = document.getElementById('sendListenerChatBtn');
 var liveCountEl = document.getElementById('listenerLiveCount');
-
 var isPlaying = false;
 var lastReactionTimestamp = Date.now();
 var lastAlertTimestamp = Date.now();
 var audioCtx = null;
 var analyser = null;
 var source = null;
+        if (startLiveBtn) {
+            startLiveBtn.onclick = function() {
+                if (player) {
+                    if (player.paused) {
+                        player.pause();
+                        // تأمين جلب دفق الصوت المتواصل وتفادي حظر التداخل التبادلي
+                        player.crossOrigin = "anonymous"; 
+                        player.type = 'audio/webm; codecs="opus"';
+                        player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
+                        player.load();
+                        
+                        startLiveBtn.innerHTML = '<span class="spinner"></span> جاري إنعاش قناة الهواء...';
+                        startLiveBtn.style.background = "#3a3650";
+                        startLiveBtn.style.color = "#fffffe";
+                        
+                        // محاولة تشغيل الصوت مع تعهد برمجي بالامتثال لسياسة المتصفح
+                        player.play()
+                        .then(function() {
+                            isPlaying = true;
+                            startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
+                            startLiveBtn.style.background = "#00ebc7";
+                            startLiveBtn.style.color = "#0f0e17";
+                            setupVisualizer();
+                        })
+                        .catch(function(error) {
+                            console.log("تنبيه المشغل اللحظي المتنقل:", error);
+                            // خطة بديلة فورية لإعادة الاتصال التلقائي بالنبضات الصامتة المتواصلة 24H
+                            setTimeout(function(){
+                                player.play()
+                                .then(function() {
+                                    isPlaying = true;
+                                    startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
+                                    startLiveBtn.style.background = "#00ebc7";
+                                    startLiveBtn.style.color = "#0f0e17";
+                                    setupVisualizer();
+                                })
+                                .catch(function(){
+                                    isPlaying = false;
+                                    startLiveBtn.innerText = "▶️ اضغط هنا لبدء الاستماع الفوري للهواء";
+                                    startLiveBtn.style.background = "#ff0055";
+                                    startLiveBtn.style.color = "#fffffe";
+                                    alert("تنبيه البث: يرجى التأكد من بدء تشغيل البث من الاستوديو الرئيسي أولاً لضمان تدفق الصوت.");
+                                });
+                            }, 1500);
+                        });
+                    } else {
+                        player.pause();
+                        player.src = "";
+                        isPlaying = false;
+                        startLiveBtn.innerText = "▶️ اضغط للاستماع المباشر للهواء";
+                        startLiveBtn.style.background = "#ff0055";
+                        startLiveBtn.style.color = "#fffffe";
+                    }
+                }
+            };
+        }
 
-function showToast(message) {
-var container = document.getElementById('toastContainer');
-if (!container) return;
-var toast = document.createElement('div');
-toast.className = 'toast-alert';
-toast.innerText = message;
-container.appendChild(toast);
-setTimeout(function() {
-toast.style.animation = "fadeOutMobile 0.4s ease-in forwards";
-setTimeout(function() { toast.remove(); }, 400);
-}, 4000);
-}
-
-if (startLiveBtn) {
-startLiveBtn.onclick = function() {
-if (player) {
-if (!isPlaying) {
-player.pause();
-player.crossOrigin = "anonymous";
-player.src = SERVER_URL + "/radio.mp3?t=" + Date.now();
-player.load();
-
-startLiveBtn.innerHTML = ' جاري الاتصال بقناة الهواء...';
-
-player.play()
-.then(function() {
-isPlaying = true;
-startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
-startLiveBtn.style.background = "#00ebc7";
-startLiveBtn.style.color = "#0f0e17";
-setupVisualizer();
-})
-.catch(function() {
-setTimeout(function(){
-player.play()
-.then(function() {
-isPlaying = true;
-startLiveBtn.innerText = "🟢 أنت تستمع للبث المباشر الآن";
-startLiveBtn.style.background = "#00ebc7";
-startLiveBtn.style.color = "#0f0e17";
-setupVisualizer();
-})
-.catch(function(){
-isPlaying = false;
-startLiveBtn.innerText = "▶️ اضغط هنا لبدء الاستماع المباشر";
-startLiveBtn.style.background = "#ff0055";
-alert("تنبيه: يرجى التأكد من تشغيل البث والميكروفون من الاستوديو أولاً.");
-});
-}, 1000);
-});
+if (muteToggleBtn && player) {
+muteToggleBtn.onclick = function() {
+player.muted = !player.muted;
+if (player.muted) {
+muteToggleBtn.innerText = "🔇";
+muteToggleBtn.classList.add('muted-active');
 } else {
-player.pause();
-player.src = "";
-isPlaying = false;
-startLiveBtn.innerText = "▶️ اضغط للاستماع المباشر للهواء";
-startLiveBtn.style.background = "#ff0055";
-startLiveBtn.style.color = "#fffffe";
-}
+muteToggleBtn.innerText = "🔊";
+muteToggleBtn.classList.remove('muted-active');
 }
 };
 }
-
 function setupVisualizer() {
 var canvas = document.getElementById('audioVisualizer');
 var canvasCtx = canvas.getContext('2d');
-
 if (!audioCtx) {
 try {
 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -228,19 +241,13 @@ source = audioCtx.createMediaElementSource(player);
 source.connect(analyser);
 analyser.connect(audioCtx.destination);
 } catch(e) {
-console.log("Visualizer bypassed.", e);
+console.log("Visualizer bypassed due to security restriction.", e);
 return;
 }
 }
-
-if (audioCtx.state === 'suspended') {
-audioCtx.resume();
-}
-
 analyser.fftSize = 64;
 var bufferLength = analyser.frequencyBinCount;
 var dataArray = new Uint8Array(bufferLength);
-
 function draw() {
 if (!isPlaying) return;
 requestAnimationFrame(draw);
@@ -259,9 +266,21 @@ canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 x += barWidth + 4;
 }
 }
+if (audioCtx.state === 'suspended') { audioCtx.resume(); }
 draw();
 }
-
+function showToast(message) {
+var container = document.getElementById('toastContainer');
+if (!container) return;
+var toast = document.createElement('div');
+toast.className = 'toast-alert';
+toast.innerText = message;
+container.appendChild(toast);
+setTimeout(function() {
+toast.style.animation = "fadeOutMobile 0.4s ease-in forwards";
+setTimeout(function() { toast.remove(); }, 400);
+}, 4000);
+}
 function fetchChatAndStats() {
 fetch('/api/messages?t=' + Date.now())
 .then(function(res) { return res.json(); })
@@ -283,16 +302,13 @@ div.appendChild(textNode);
 chatMessages.appendChild(div);
 });
 }
-
 chatMessages.scrollTop = chatMessages.scrollHeight;
 }).catch(function(err){ console.log(err); });
-
 fetch('/api/listeners-count?t=' + Date.now())
 .then(function(res) { return res.json(); })
 .then(function(data) {
 if (liveCountEl && data.count !== undefined) liveCountEl.innerText = data.count;
 }).catch(function(){});
-
 fetch('/api/reactions?since=' + lastReactionTimestamp + '&t=' + Date.now())
 .then(function(res) { return res.json(); })
 .then(function(data) {
@@ -304,7 +320,6 @@ lastReactionTimestamp = Date.now();
 }
 }).catch(function(){});
 }
-
 function fetchRadioMeta() {
 fetch('/api/radio-meta?since=' + lastAlertTimestamp + '&t=' + Date.now())
 .then(function(res) { return res.json(); })
@@ -314,12 +329,7 @@ document.getElementById('metaFreq').innerText = data.fmStats.frequency || "99.5 
 document.getElementById('metaBitrate').innerText = data.fmStats.bitrate || "128 kbps";
 document.getElementById('metaCodec').innerText = data.fmStats.codec || "MP3 / AAC+";
 document.getElementById('metaSignal').innerText = data.fmStats.signalStrength || "98%";
-
-if (!data.fmStats.rdsText || data.fmStats.rdsText.includes('undefined')) {
-document.getElementById('metaRds').innerText = "RDS 🎵: الملك كينج - بث مباشر حيوى";
-} else {
-document.getElementById('metaRds').innerText = "RDS 🎵: " + data.fmStats.rdsText;
-}
+document.getElementById('metaRds').innerText = "RDS: " + (data.fmStats.rdsText || "Radio King Live");
 }
 var logoContainer = document.getElementById('radioLogoContainer');
 if (logoContainer) {
@@ -329,23 +339,29 @@ logoContainer.innerHTML = '';
 logoContainer.innerText = "👑";
 }
 }
-if (Array.isArray(data.podcasts) && data.podcasts.length > 0) {
-var container = document.getElementById('globalPodcastsContainer');
-if (container) {
-container.innerHTML = "";
-data.podcasts.forEach(function(p) {
-var a = document.createElement('a');
-a.className = "podcast-link";
-a.href = p.url;
-a.target = "_blank";
-a.innerHTML = '🟢 ' + p.title + ' [اضغط للاستماع]';
-container.appendChild(a);
-});
+if (Array.isArray(data.podcasts)) {
+    var container = document.getElementById('globalPodcastsContainer');
+    if (container) {
+        container.innerHTML = "";
+        data.podcasts.forEach(function(p) {
+            var a = document.createElement('a');
+            a.className = "podcast-link";
+            a.href = p.url;
+            a.target = "_blank"; // يفتح في علامة تبويب جديدة أو تطبيق سبوتيفاي مباشرة
+            a.innerHTML = '🟢 ' + p.title + ' <span style="color:#00ebc7">[اضغط هنا للاستماع]</span>';
+            container.appendChild(a);
+        });
+    }
 }
+
+if (data.alerts && Array.isArray(data.alerts)) {
+data.alerts.forEach(function(alertItem) {
+showToast(alertItem.message);
+});
+lastAlertTimestamp = Date.now();
 }
 }).catch(function(){});
 }
-
 function submitComment() {
 var text = chatInput.value.trim();
 var sender = nameInput.value.trim() || "مستمع";
@@ -359,14 +375,12 @@ body: JSON.stringify({ sender: sender, text: text })
 .then(function() { fetchChatAndStats(); })
 .catch(function() { alert("خطأ في إرسال الرسالة"); });
 }
-
 if (sendChatBtn) {
 sendChatBtn.onclick = function(e) {
 if (e) e.preventDefault();
 submitComment();
 };
 }
-
 if (chatInput) {
 chatInput.addEventListener('keypress', function(e) {
 if (e.key === 'Enter') {
@@ -374,7 +388,6 @@ submitComment();
 }
 });
 }
-
 function sendReaction(emoji) {
 createFloatingEmoji(emoji);
 fetch('/api/reactions', {
@@ -383,7 +396,6 @@ headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ emoji: emoji })
 }).catch(function(){});
 }
-
 function createFloatingEmoji(emoji) {
 var div = document.createElement('div');
 div.className = 'floating-emoji';
@@ -393,15 +405,67 @@ div.style.animationDuration = (Math.random() * 2 + 3) + 's';
 document.body.appendChild(div);
 setTimeout(function() { div.remove(); }, 4000);
 }
-
-// 🛠️ الفكرة القاطعة: حقن الروابط التشعبية الصريحة داخل أوسمة الروابط مباشرة لمنع حظر الموبايل كلياًfunction initializeSecureSharingLinks() {var pageUrl = encodeURIComponent(window.location.href);var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");var fbBtn = document.getElementById('shareFB');var waBtn = document.getElementById('shareWA');var twBtn = document.getElementById('shareTW');if (fbBtn) fbBtn.href = "facebook.com" + pageUrl;if (waBtn) waBtn.href = "whatsapp.com" + text + "%20" + pageUrl;if (twBtn) twBtn.href = "twitter.com" + text + "&url=" + pageUrl;}
-
+function shareOnSocial(platform) {
+var pageUrl = encodeURIComponent(window.location.href);
+var text = encodeURIComponent("🎙️ استمع معي الآن لبث راديو كينج المباشر بجودة FM عالية وتفاعل أونلاين!");
+var shareUrl = "";
+if (platform === 'whatsapp') {
+shareUrl = "whatsapp.com" + text + "%20" + pageUrl;
+} else if (platform === 'facebook') {
+shareUrl = "facebook.com" + pageUrl;
+} else if (platform === 'twitter') {
+shareUrl = "twitter.com" + text + "&url=" + pageUrl;
+}
+if (shareUrl) {
+var win = window.open(shareUrl, '_blank', 'width=600,height=400');
+if (win) { win.focus(); } else { window.location.href = shareUrl; }
+}
+}
 setInterval(function() {
 fetchChatAndStats();
 fetchRadioMeta();
 }, 3000);
+fetchChatAndStats();
+fetchRadioMeta();
 
-/ تشغيل جلب البيانات وحقن روابط السوشيال ميديا المباشرة فوراً عند التحميل الأولfetchChatAndStats();fetchRadioMeta();initializeSecureSharingLinks();
+        // نظام تبديل المظهر اللوني الذكي للمستمعين
+        var themeBtn = document.getElementById('themeToggleBtn');
+        if (themeBtn) {
+            themeBtn.onclick = function() {
+                // التحقق من النمط الحالي عبر استخدام فئة أو التحقق المباشر من لون الخلفية
+                if (document.body.style.backgroundColor === "rgb(240, 240, 246)") {
+                    document.body.style.backgroundColor = "#0f0e17";
+                    document.body.style.color = "#fffffe";
+                    themeBtn.style.backgroundColor = "#2a283e";
+                    themeBtn.style.color = "#00ebc7";
+                    
+                    // تحويل ألوان الكروت للنمط المظلم
+                    document.querySelectorAll('.card').forEach(function(card) {
+                        card.style.backgroundColor = "#1f1d2e";
+                        card.style.borderColor = "#2a283e";
+                        card.style.color = "#fffffe";
+                    });
+                } else {
+                    document.body.style.backgroundColor = "rgb(240, 240, 246)";
+                    document.body.style.color = "#0f0e17";
+                    themeBtn.style.backgroundColor = "#fffffe";
+                    themeBtn.style.color = "#ff0055";
+                    
+                    // تحويل ألوان الكروت للنمط المضيء لراحة العين
+                    document.querySelectorAll('.card').forEach(function(card) {
+                        card.style.backgroundColor = "#ffffff";
+                        card.style.borderColor = "#dddddd";
+                        card.style.color = "#0f0e17";
+                    });
+                }
+            };
+        }
+
+
+
+
 </script>
-</html>
+       
+
 </body>
+</html>
